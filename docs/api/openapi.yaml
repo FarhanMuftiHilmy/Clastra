@@ -1,0 +1,598 @@
+openapi: 3.1.0
+info:
+  title: ScholaSync REST API
+  description: Specification for the ScholaSync School Management, Academics, and Attendance API. Serves as the implementation contract for the Go REST backend.
+  version: 1.0.0
+servers:
+  - url: /api/v1
+    description: Sandbox/Local API Gateway
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate User
+      description: Validates credentials and establishes a secure session cookie or returns a stateless JWT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+                - email
+                - password
+              properties:
+                role:
+                  type: string
+                  enum: [admin, teacher]
+                  description: Target access role
+                email:
+                  type: string
+                  format: email
+                  example: admin@school.edu
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Logged in successfully
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                description: Secure, HttpOnly cookie containing JWT session token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/logout:
+    post:
+      summary: End Active Session
+      description: Invalidates active authorization cookie and revokes session.
+      responses:
+        '200':
+          description: Session terminated successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/me:
+    get:
+      summary: Get Current Session Profile
+      description: Returns the user profile associated with the active session.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /students:
+    get:
+      summary: Retrieve Student Directory
+      description: Fetches all students with optional search query and class filtration. Supports pagination.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search term matching Name, Roll ID, or Email.
+        - name: classId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter students by specific Class ID.
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: List of matching student records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Student'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      summary: Enroll New Student
+      description: Registers a new student and assigns them to an active class. Only accessible by Admins.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - rollNumber
+                - email
+                - classId
+                - gender
+              properties:
+                name:
+                  type: string
+                  example: Jennifer Lopez
+                rollNumber:
+                  type: string
+                  example: 10A05
+                email:
+                  type: string
+                  format: email
+                  example: jennifer@school.edu
+                classId:
+                  type: string
+                  example: cls_1
+                gender:
+                  type: string
+                  enum: [Male, Female, Other]
+                  example: Female
+      responses:
+        '201':
+          description: Student enrolled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Roll number conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /students/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Retrieve Student Profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      summary: Update Student Profile
+      description: Overwrites existing student details. Only accessible by Admins.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Student'
+      responses:
+        '200':
+          description: Student profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Roll number duplication conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete Student Record
+      description: Removes student permanently and scrubs relevant attendance arrays. Admins only.
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Student deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /classes:
+    get:
+      summary: Retrieve Classes List
+      description: Returns list of all class configurations.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Class'
+
+    post:
+      summary: Establish New Class
+      description: Creates a school class cohort. Admins only.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - grade
+                - room
+                - teacherId
+              properties:
+                name:
+                  type: string
+                  example: Grade 10 - Geometry
+                grade:
+                  type: string
+                  example: "10"
+                room:
+                  type: string
+                  example: Room 402
+                teacherId:
+                  type: string
+                  example: t1
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Class'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /classes/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Retrieve Class Details
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Class'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      summary: Update Class Parameters
+      description: Modifies class room, name, or assigned teacher. Admins only.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Class'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Class'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      summary: Dissolve Class Cohort
+      description: Removes class, nullifies student class IDs, and purges class logs. Admins only.
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Class removed successfully
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /teachers:
+    get:
+      summary: Get Teacher Roster
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Teacher'
+
+  /teachers/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Get Teacher Profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Teacher'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /attendance:
+    get:
+      summary: Get Attendance Logs
+      description: Queries full historical attendance logs across classes, dates, and student statuses.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: classId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter by target ISO Date (YYYY-MM-DD)
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [Present, Sick, Excused, Absent]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttendanceRecord'
+
+    post:
+      summary: Submit Daily Attendance List (Upsert)
+      description: Logs or overwrites the attendance register for a specific class on a specific date.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - classId
+                - date
+                - submittedBy
+                - students
+              properties:
+                classId:
+                  type: string
+                  example: cls_1
+                date:
+                  type: string
+                  format: date
+                  example: "2026-07-12"
+                submittedBy:
+                  type: string
+                  example: t1
+                students:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - studentId
+                      - status
+                    properties:
+                      studentId:
+                        type: string
+                        example: std_1
+                      status:
+                        type: string
+                        enum: [Present, Sick, Excused, Absent]
+                        example: Present
+      responses:
+        '201':
+          description: Attendance recorded/updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceRecord'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CurrentUser:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [admin, teacher]
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+    Student:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        rollNumber:
+          type: string
+        email:
+          type: string
+        classId:
+          type: string
+        gender:
+          type: string
+          enum: [Male, Female, Other]
+    Class:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        grade:
+          type: string
+        room:
+          type: string
+        teacherId:
+          type: string
+    Teacher:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        subject:
+          type: string
+    AttendanceRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        classId:
+          type: string
+        date:
+          type: string
+        submittedBy:
+          type: string
+        submittedAt:
+          type: string
+        students:
+          type: array
+          items:
+            type: object
+            properties:
+              studentId:
+                type: string
+              status:
+                type: string
+                enum: [Present, Sick, Excused, Absent]
+    ErrorResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          example: "https://scholasync.edu/errors/validation"
+        title:
+          type: string
+          example: "Invalid Request Parameters"
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+          example: "The field 'rollNumber' must be unique."
+        instance:
+          type: string
+          example: "/api/v1/students"
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+  responses:
+    ValidationError:
+      description: Unprocessable request data or format constraints failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnauthorizedError:
+      description: Bearer authentication token missing or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ForbiddenError:
+      description: Active user role holds insufficient authorization permissions.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: The requested resource identifier was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
