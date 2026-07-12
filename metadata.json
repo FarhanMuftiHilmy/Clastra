@@ -1,0 +1,6 @@
+{
+  "name": "School Class Management System",
+  "description": "A comprehensive administrative dashboard and mobile teacher portal for managing students, classes, and taking attendance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
