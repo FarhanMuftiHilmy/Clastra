@@ -5,23 +5,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { Student, Class, Teacher, AttendanceRecord, CurrentUser, AttendanceStatus, UserRole } from './types';
-import { 
-  INITIAL_TEACHERS, INITIAL_CLASSES, INITIAL_STUDENTS, 
-  generateInitialAttendance 
-} from './data';
+import { INITIAL_TEACHERS } from './data';
 import AuthScreen from './components/AuthScreen';
 import AdminDashboard from './components/AdminDashboard';
 import TeacherPortal from './components/TeacherPortal';
 import DeviceFrame from './components/DeviceFrame';
 import { Sparkles, ArrowLeftRight, UserCheck, Shield, BookOpen } from 'lucide-react';
-
-const STORAGE_KEYS = {
-  TEACHERS: 'sms_teachers',
-  CLASSES: 'sms_classes',
-  STUDENTS: 'sms_students',
-  ATTENDANCE: 'sms_attendance_records',
-  CURRENT_USER: 'sms_current_user',
-};
+import { studentService, classService, teacherService, attendanceService, authService } from './core/container';
 
 export default function App() {
   // --- STATE ---
@@ -33,197 +23,154 @@ export default function App() {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // --- PERSISTENCE LOADER ---
+  const loadData = async () => {
+    try {
+      const [activeTeachers, activeClasses, activeStudents, activeAttendance, activeUser] = await Promise.all([
+        teacherService.getAllTeachers(),
+        classService.getAllClasses(),
+        studentService.getAllStudents(),
+        attendanceService.getAllRecords(),
+        authService.getCurrentUser(),
+      ]);
+
+      setTeachers(activeTeachers);
+      setClasses(activeClasses);
+      setStudents(activeStudents);
+      setAttendanceRecords(activeAttendance);
+      setCurrentUser(activeUser);
+    } catch (error) {
+      console.error('Error loading initialization data from services:', error);
+    } finally {
+      setIsDataLoaded(true);
+    }
+  };
+
   useEffect(() => {
-    // Load or Seed Teachers
-    let storedTeachers = localStorage.getItem(STORAGE_KEYS.TEACHERS);
-    let activeTeachers = INITIAL_TEACHERS;
-    if (storedTeachers) {
-      activeTeachers = JSON.parse(storedTeachers);
-    } else {
-      localStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(INITIAL_TEACHERS));
-    }
-    setTeachers(activeTeachers);
-
-    // Load or Seed Classes
-    let storedClasses = localStorage.getItem(STORAGE_KEYS.CLASSES);
-    let activeClasses = INITIAL_CLASSES;
-    if (storedClasses) {
-      activeClasses = JSON.parse(storedClasses);
-    } else {
-      localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(INITIAL_CLASSES));
-    }
-    setClasses(activeClasses);
-
-    // Load or Seed Students
-    let storedStudents = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-    let activeStudents = INITIAL_STUDENTS;
-    if (storedStudents) {
-      activeStudents = JSON.parse(storedStudents);
-    } else {
-      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(INITIAL_STUDENTS));
-    }
-    setStudents(activeStudents);
-
-    // Load or Seed Attendance Records
-    let storedAttendance = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
-    let activeAttendance = [];
-    if (storedAttendance) {
-      activeAttendance = JSON.parse(storedAttendance);
-    } else {
-      activeAttendance = generateInitialAttendance();
-      localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(activeAttendance));
-    }
-    setAttendanceRecords(activeAttendance);
-
-    // Load Current User Session
-    let storedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    }
-
-    setIsDataLoaded(true);
+    loadData();
   }, []);
 
-  // --- PERSISTENCE UPDATERS ---
-  const saveTeachers = (newTeachers: Teacher[]) => {
-    setTeachers(newTeachers);
-    localStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(newTeachers));
-  };
-
-  const saveClasses = (newClasses: Class[]) => {
-    setClasses(newClasses);
-    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(newClasses));
-  };
-
-  const saveStudents = (newStudents: Student[]) => {
-    setStudents(newStudents);
-    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(newStudents));
-  };
-
-  const saveAttendance = (newAttendance: AttendanceRecord[]) => {
-    setAttendanceRecords(newAttendance);
-    localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(newAttendance));
-  };
-
   // --- USER AUTHENTICATION ACTIONS ---
-  const handleLoginSuccess = (role: UserRole, userDetail: { id: string; name: string; email: string }) => {
-    const sessionUser: CurrentUser = {
-      role,
-      id: userDetail.id,
-      name: userDetail.name,
-      email: userDetail.email,
-    };
-    setCurrentUser(sessionUser);
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(sessionUser));
+  const handleLoginSuccess = async (role: UserRole, userDetail: { id: string; name: string; email: string }) => {
+    try {
+      const sessionUser = await authService.login(role, userDetail.email);
+      setCurrentUser(sessionUser);
+    } catch (error) {
+      console.error('Login error:', error);
+    }
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      setCurrentUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   // --- ADMIN ACTIONS: STUDENT MANAGERS ---
-  const handleAddStudent = (studentData: Omit<Student, 'id'>) => {
-    const newStudent: Student = {
-      ...studentData,
-      id: `std_${Date.now()}`,
-    };
-    const updated = [...students, newStudent];
-    saveStudents(updated);
+  const handleAddStudent = async (studentData: Omit<Student, 'id'>) => {
+    try {
+      await studentService.addStudent(studentData);
+      const updated = await studentService.getAllStudents();
+      setStudents(updated);
+    } catch (error) {
+      console.error('Add student error:', error);
+    }
   };
 
-  const handleUpdateStudent = (updatedStudent: Student) => {
-    const updated = students.map(s => s.id === updatedStudent.id ? updatedStudent : s);
-    saveStudents(updated);
+  const handleUpdateStudent = async (updatedStudent: Student) => {
+    try {
+      await studentService.updateStudent(updatedStudent);
+      const updated = await studentService.getAllStudents();
+      setStudents(updated);
+    } catch (error) {
+      console.error('Update student error:', error);
+    }
   };
 
-  const handleDeleteStudent = (id: string) => {
-    const updated = students.filter(s => s.id !== id);
-    saveStudents(updated);
-    
-    // Also remove student from any existing attendance records to keep sync clean
-    const cleanedAttendance = attendanceRecords.map(record => ({
-      ...record,
-      students: record.students.filter(s => s.studentId !== id),
-    }));
-    saveAttendance(cleanedAttendance);
+  const handleDeleteStudent = async (id: string) => {
+    try {
+      await studentService.deleteStudent(id);
+      const [updatedStudents, updatedAttendance] = await Promise.all([
+        studentService.getAllStudents(),
+        attendanceService.getAllRecords(),
+      ]);
+      setStudents(updatedStudents);
+      setAttendanceRecords(updatedAttendance);
+    } catch (error) {
+      console.error('Delete student error:', error);
+    }
   };
 
   // --- ADMIN ACTIONS: CLASS MANAGERS ---
-  const handleAddClass = (classData: Omit<Class, 'id'>) => {
-    const newClass: Class = {
-      ...classData,
-      id: `cls_${Date.now()}`,
-    };
-    const updated = [...classes, newClass];
-    saveClasses(updated);
+  const handleAddClass = async (classData: Omit<Class, 'id'>) => {
+    try {
+      await classService.addClass(classData);
+      const updated = await classService.getAllClasses();
+      setClasses(updated);
+    } catch (error) {
+      console.error('Add class error:', error);
+    }
   };
 
-  const handleUpdateClass = (updatedClass: Class) => {
-    const updated = classes.map(c => c.id === updatedClass.id ? updatedClass : c);
-    saveClasses(updated);
+  const handleUpdateClass = async (updatedClass: Class) => {
+    try {
+      await classService.updateClass(updatedClass);
+      const updated = await classService.getAllClasses();
+      setClasses(updated);
+    } catch (error) {
+      console.error('Update class error:', error);
+    }
   };
 
-  const handleDeleteClass = (id: string) => {
-    const updated = classes.filter(c => c.id !== id);
-    saveClasses(updated);
-
-    // Also unassign student class IDs for deleted class
-    const updatedStudents = students.map(s => s.classId === id ? { ...s, classId: '' } : s);
-    saveStudents(updatedStudents);
-
-    // Filter out attendance records of deleted class
-    const updatedAttendance = attendanceRecords.filter(r => r.classId !== id);
-    saveAttendance(updatedAttendance);
+  const handleDeleteClass = async (id: string) => {
+    try {
+      await classService.deleteClass(id);
+      const [updatedClasses, updatedStudents, updatedAttendance] = await Promise.all([
+        classService.getAllClasses(),
+        studentService.getAllStudents(),
+        attendanceService.getAllRecords(),
+      ]);
+      setClasses(updatedClasses);
+      setStudents(updatedStudents);
+      setAttendanceRecords(updatedAttendance);
+    } catch (error) {
+      console.error('Delete class error:', error);
+    }
   };
 
   // --- TEACHER ACTIONS: TAKE ATTENDANCE ---
-  const handleSubmitAttendance = (
+  const handleSubmitAttendance = async (
     classId: string, 
     date: string, 
     studentStatuses: { studentId: string; status: AttendanceStatus }[]
   ) => {
     if (!currentUser) return;
 
-    // Check if we are updating an existing day record or writing a brand new one
-    const recordId = `att_${classId}_${date}`;
-    const existingIndex = attendanceRecords.findIndex(r => r.classId === classId && r.date === date);
-
-    const newRecord: AttendanceRecord = {
-      id: recordId,
-      classId,
-      date,
-      submittedBy: currentUser.id,
-      submittedAt: new Date().toISOString(),
-      students: studentStatuses,
-    };
-
-    let updatedRecords = [...attendanceRecords];
-    if (existingIndex !== -1) {
-      updatedRecords[existingIndex] = newRecord;
-    } else {
-      updatedRecords.push(newRecord);
+    try {
+      await attendanceService.submitAttendance(classId, date, currentUser.id, studentStatuses);
+      const updated = await attendanceService.getAllRecords();
+      setAttendanceRecords(updated);
+    } catch (error) {
+      console.error('Submit attendance error:', error);
     }
-
-    saveAttendance(updatedRecords);
   };
 
   // --- SANBOX ROLE QUICK SWITCHER FOR LIVE PREVIEW ---
-  const handleSandboxSwitch = (role: UserRole) => {
-    if (role === 'admin') {
-      handleLoginSuccess('admin', {
-        id: 'admin_1',
-        name: 'Principal Arthur',
-        email: 'admin@school.edu',
-      });
-    } else {
-      // Login as Sarah Jenkins (t1) by default
-      const sarah = teachers.find(t => t.id === 't1') || INITIAL_TEACHERS[0];
-      handleLoginSuccess('teacher', {
-        id: sarah.id,
-        name: sarah.name,
-        email: sarah.email,
-      });
+  const handleSandboxSwitch = async (role: UserRole) => {
+    try {
+      if (role === 'admin') {
+        const user = await authService.login('admin', 'admin@school.edu');
+        setCurrentUser(user);
+      } else {
+        // Login as Sarah Jenkins (t1) by default
+        const sarah = teachers.find(t => t.id === 't1') || INITIAL_TEACHERS[0];
+        const user = await authService.login('teacher', sarah.email);
+        setCurrentUser(user);
+      }
+    } catch (error) {
+      console.error('Sandbox switch error:', error);
     }
   };
 
