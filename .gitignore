@@ -6,3 +6,22 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Go compiled binaries and directories
+/backend/main
+/backend/backend
+*.exe
+*.exe_
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDEs
+.idea/
+.vscode/
+
+# Local database and volume directories
+.pgdata/
+
