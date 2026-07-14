@@ -50,4 +50,5 @@ export interface CurrentUser {
   id: string; // admin or teacher ID
   name: string;
   email: string;
+  token?: string;
 }

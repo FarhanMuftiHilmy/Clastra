@@ -50,12 +50,13 @@ export default function App() {
   }, []);
 
   // --- USER AUTHENTICATION ACTIONS ---
-  const handleLoginSuccess = async (role: UserRole, userDetail: { id: string; name: string; email: string }) => {
+  const handleLoginSuccess = async (role: UserRole, userDetail: { id: string; name: string; email: string; password?: string }) => {
     try {
-      const sessionUser = await authService.login(role, userDetail.email);
+      const sessionUser = await authService.login(role, userDetail.email, userDetail.password);
       setCurrentUser(sessionUser);
     } catch (error) {
       console.error('Login error:', error);
+      throw error;
     }
   };
 
@@ -161,12 +162,12 @@ export default function App() {
   const handleSandboxSwitch = async (role: UserRole) => {
     try {
       if (role === 'admin') {
-        const user = await authService.login('admin', 'admin@school.edu');
+        const user = await authService.login('admin', 'admin@school.edu', 'admin123');
         setCurrentUser(user);
       } else {
         // Login as Sarah Jenkins (t1) by default
         const sarah = teachers.find(t => t.id === 't1') || INITIAL_TEACHERS[0];
-        const user = await authService.login('teacher', sarah.email);
+        const user = await authService.login('teacher', sarah.email, 'teacher123');
         setCurrentUser(user);
       }
     } catch (error) {
@@ -189,7 +190,7 @@ export default function App() {
     <div className="relative min-h-screen bg-slate-50">
       
       {/* Floating Developer Sandbox Controller */}
-      <div 
+      {/* <div 
         id="sandbox-developer-hub" 
         className="fixed bottom-4 right-4 z-50 bg-white border border-slate-200 text-slate-800 rounded-xl p-4 shadow-md max-w-xs w-72"
       >
@@ -231,7 +232,7 @@ export default function App() {
             As Teacher
           </button>
         </div>
-      </div>
+      </div> */}
 
       {/* --- CONDITIONAL ROUTE RENDERER --- */}
       {currentUser === null ? (

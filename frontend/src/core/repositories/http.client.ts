@@ -25,15 +25,34 @@ export class HttpClient {
     return headers;
   }
 
+  private static async handleResponse<T>(response: Response, method: string): Promise<T> {
+    if (!response.ok) {
+      let message = `HTTP ${method} error: ${response.status} ${response.statusText}`;
+      try {
+        const text = await response.text();
+        if (text) {
+          const parsed = JSON.parse(text);
+          message = parsed.detail || parsed.title || message;
+        }
+      } catch {
+        // Ignore parse errors and fall back to the default message.
+      }
+      throw new Error(message);
+    }
+
+    const text = await response.text();
+    if (!text) {
+      return {} as T;
+    }
+    return JSON.parse(text) as T;
+  }
+
   static async get<T>(path: string): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       method: 'GET',
       headers: this.getHeaders(),
     });
-    if (!response.ok) {
-      throw new Error(`HTTP GET error: ${response.status} ${response.statusText}`);
-    }
-    return response.json();
+    return this.handleResponse<T>(response, 'GET');
   }
 
   static async post<T>(path: string, body: any): Promise<T> {
@@ -42,10 +61,7 @@ export class HttpClient {
       headers: this.getHeaders(),
       body: JSON.stringify(body),
     });
-    if (!response.ok) {
-      throw new Error(`HTTP POST error: ${response.status} ${response.statusText}`);
-    }
-    return response.json();
+    return this.handleResponse<T>(response, 'POST');
   }
 
   static async put<T>(path: string, body: any): Promise<T> {
@@ -54,10 +70,7 @@ export class HttpClient {
       headers: this.getHeaders(),
       body: JSON.stringify(body),
     });
-    if (!response.ok) {
-      throw new Error(`HTTP PUT error: ${response.status} ${response.statusText}`);
-    }
-    return response.json();
+    return this.handleResponse<T>(response, 'PUT');
   }
 
   static async delete(path: string): Promise<void> {
@@ -65,8 +78,6 @@ export class HttpClient {
       method: 'DELETE',
       headers: this.getHeaders(),
     });
-    if (!response.ok) {
-      throw new Error(`HTTP DELETE error: ${response.status} ${response.statusText}`);
-    }
+    await this.handleResponse<void>(response, 'DELETE');
   }
 }

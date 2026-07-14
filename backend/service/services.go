@@ -265,6 +265,13 @@ func (as *AttendanceService) Save(record *models.AttendanceRecord) (*models.Prob
 	return nil, nil
 }
 
+func (as *AttendanceService) DeleteByClassID(classID string) error {
+	if classID == "" {
+		return fmt.Errorf("classId is required to delete attendance records")
+	}
+	return as.Repo.DeleteByClassID(classID)
+}
+
 type AuthService struct {
 	TeacherRepo repository.TeacherRepository
 	SecretKey   []byte

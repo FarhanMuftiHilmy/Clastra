@@ -307,3 +307,19 @@ func (c *Controller) HandleSubmitAttendance(w http.ResponseWriter, r *http.Reque
 
 	writeJSON(w, http.StatusOK, rec)
 }
+
+func (c *Controller) HandleDeleteAttendance(w http.ResponseWriter, r *http.Request) {
+	classID := r.URL.Query().Get("classId")
+	if classID == "" {
+		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Missing Parameters", "classId is required to delete attendance records.")
+		return
+	}
+
+	err := c.Attendance.DeleteByClassID(classID)
+	if err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Deletion Error", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

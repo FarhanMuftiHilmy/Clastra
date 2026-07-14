@@ -10,7 +10,7 @@ import { Teacher, UserRole } from '../types';
 
 interface AuthScreenProps {
   teachers: Teacher[];
-  onLoginSuccess: (role: UserRole, userDetail: { id: string; name: string; email: string }) => void;
+  onLoginSuccess: (role: UserRole, userDetail: { id: string; name: string; email: string; password?: string }) => Promise<void> | void;
 }
 
 export default function AuthScreen({ teachers, onLoginSuccess }: AuthScreenProps) {
@@ -40,7 +40,7 @@ export default function AuthScreen({ teachers, onLoginSuccess }: AuthScreenProps
     setError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -55,32 +55,19 @@ export default function AuthScreen({ teachers, onLoginSuccess }: AuthScreenProps
 
     setIsLoading(true);
 
-    // Simulate network delay
-    setTimeout(() => {
+    try {
+      await onLoginSuccess(selectedRole, {
+        id: selectedRole === 'admin' ? 'admin_1' : '',
+        name: selectedRole === 'admin' ? 'Principal Arthur' : '',
+        email,
+        password,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to sign in. Please try again.';
+      setError(message);
+    } finally {
       setIsLoading(false);
-      if (selectedRole === 'admin') {
-        if (email.toLowerCase() === 'admin@school.edu' && password === 'password123') {
-          onLoginSuccess('admin', {
-            id: 'admin_1',
-            name: 'Principal Arthur',
-            email: 'admin@school.edu',
-          });
-        } else {
-          setError('Invalid Admin credentials. Use admin@school.edu and password123');
-        }
-      } else {
-        const foundTeacher = teachers.find(t => t.email.toLowerCase() === email.toLowerCase());
-        if (foundTeacher) {
-          onLoginSuccess('teacher', {
-            id: foundTeacher.id,
-            name: foundTeacher.name,
-            email: foundTeacher.email,
-          });
-        } else {
-          setError('Teacher email not found in school records.');
-        }
-      }
-    }, 800);
+    }
   };
 
   return (
@@ -219,7 +206,7 @@ export default function AuthScreen({ teachers, onLoginSuccess }: AuthScreenProps
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Password:</span>
-                <span className="font-mono font-semibold text-slate-800">password123</span>
+                <span className="font-mono font-semibold text-slate-800">admin123</span>
               </div>
             </div>
           ) : (

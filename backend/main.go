@@ -102,6 +102,7 @@ func main() {
 	// Attendance Ledger
 	mux.Handle("GET /api/v1/attendance", staffChain(ctrl.HandleGetAttendance))
 	mux.Handle("POST /api/v1/attendance", staffChain(ctrl.HandleSubmitAttendance))
+	mux.Handle("DELETE /api/v1/attendance", staffChain(ctrl.HandleDeleteAttendance))
 
 	// Wrap root router with global middlewares (Logger, CORS, Recovery)
 	corsMiddleware := middleware.CORS(cfg.AllowedCORS)

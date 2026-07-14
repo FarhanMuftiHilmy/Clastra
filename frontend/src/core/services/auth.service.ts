@@ -5,6 +5,7 @@
 
 import { CurrentUser, UserRole } from '../../types';
 import { ITeacherRepository } from '../repositories/interfaces';
+import { HttpClient } from '../repositories/http.client';
 
 const STORAGE_KEY = 'sms_current_user';
 
@@ -19,30 +20,27 @@ export class AuthService {
     return null;
   }
 
-  async login(role: UserRole, email: string): Promise<CurrentUser> {
-    if (role === 'admin') {
-      const user: CurrentUser = {
-        role: 'admin',
-        id: 'admin_1',
-        name: 'Principal Arthur',
-        email: 'admin@school.edu',
+  async login(role: UserRole, email: string, password?: string): Promise<CurrentUser> {
+    const requestPassword = password ?? (role === 'admin' ? 'admin123' : 'teacher123');
+
+    try {
+      const user = await HttpClient.post<CurrentUser>('/auth/login', {
+        role,
+        email,
+        password: requestPassword,
+      });
+
+      const sessionUser: CurrentUser = {
+        ...user,
+        role: user.role ?? role,
+        email: user.email ?? email,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-      return user;
-    } else {
-      const teachers = await this.teacherRepo.getAll();
-      const found = teachers.find(t => t.email.toLowerCase() === email.toLowerCase());
-      if (found) {
-        const user: CurrentUser = {
-          role: 'teacher',
-          id: found.id,
-          name: found.name,
-          email: found.email,
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-        return user;
-      }
-      throw new Error('Teacher email not found in school records.');
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionUser));
+      return sessionUser;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to sign in. Please try again.';
+      throw new Error(message);
     }
   }
 
