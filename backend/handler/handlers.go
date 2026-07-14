@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"scholasync/backend/models"
 	"scholasync/backend/service"
@@ -182,6 +183,7 @@ func (c *Controller) HandleDeleteStudent(w http.ResponseWriter, r *http.Request)
 
 // Classes Handlers
 func (c *Controller) HandleGetClasses(w http.ResponseWriter, r *http.Request) {
+	fmt.Print("masuk sini HandleGetClasses")
 	classes, err := c.Class.GetAll()
 	if err != nil {
 		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Database Read Error", err.Error())
@@ -211,6 +213,7 @@ func (c *Controller) HandleGetClassByID(w http.ResponseWriter, r *http.Request) 
 }
 
 func (c *Controller) HandleCreateClass(w http.ResponseWriter, r *http.Request) {
+	fmt.Print("masuk sini HandleCreateClass")
 	var cl models.Class
 	if err := json.NewDecoder(r.Body).Decode(&cl); err != nil {
 		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON class registration payload.")

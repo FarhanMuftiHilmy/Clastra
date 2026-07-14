@@ -14,6 +14,7 @@ export class ClassService {
   ) {}
 
   async getAllClasses(): Promise<Class[]> {
+    console.log('Fetching all classes from ClassService');
     return this.classRepo.getAll();
   }
 

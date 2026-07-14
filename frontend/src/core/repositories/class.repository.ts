@@ -24,6 +24,7 @@ export class InMemoryClassRepository implements IClassRepository {
   }
 
   async getAll(): Promise<Class[]> {
+    console.log('Fetching all classes from InMemoryClassRepository');
     return this.load();
   }
 

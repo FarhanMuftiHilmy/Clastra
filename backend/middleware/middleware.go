@@ -9,6 +9,8 @@ import (
 	"scholasync/backend/service"
 	"strings"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type contextKey string
@@ -127,7 +129,7 @@ func RequireRoles(permittedRoles ...models.UserRole) func(http.Handler) http.Han
 				return
 			}
 
-			claims := claimsVal.(*map[string]interface{})
+			claims := claimsVal.(*jwt.MapClaims)
 			roleVal, ok := (*claims)["role"].(string)
 			if !ok {
 				w.Header().Set("Content-Type", "application/json")

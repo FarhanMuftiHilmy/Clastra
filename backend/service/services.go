@@ -282,7 +282,7 @@ func (as *AuthService) Login(req models.LoginRequest) (*models.CurrentUser, *mod
 			Title:  "Missing Credentials",
 			Status: 400,
 			Detail: "Both Email and Password parameters are mandatory to initiate authentications.",
-		}, nil, nil
+		}, nil
 	}
 
 	var userID, userName string
@@ -294,7 +294,7 @@ func (as *AuthService) Login(req models.LoginRequest) (*models.CurrentUser, *mod
 				Title:  "Authentication Failure",
 				Status: 401,
 				Detail: "The username or password provided is incorrect.",
-			}, nil, nil
+			}, nil
 		}
 		userID = "admin_1"
 		userName = "Principal Arthur"
@@ -311,7 +311,7 @@ func (as *AuthService) Login(req models.LoginRequest) (*models.CurrentUser, *mod
 				Title:  "Authentication Failure",
 				Status: 401,
 				Detail: "The email or password provided is incorrect.",
-			}, nil, nil
+			}, nil
 		}
 		userID = teacher.ID
 		userName = teacher.Name
@@ -321,7 +321,7 @@ func (as *AuthService) Login(req models.LoginRequest) (*models.CurrentUser, *mod
 			Title:  "Invalid Role Configuration",
 			Status: 400,
 			Detail: "The authentication handshake role must be either 'admin' or 'teacher'.",
-		}, nil, nil
+		}, nil
 	}
 
 	// Generate standard secure JWT claims

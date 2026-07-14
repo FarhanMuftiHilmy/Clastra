@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
-	"os"
 	"scholasync/backend/config"
 	"scholasync/backend/handler"
 	"scholasync/backend/middleware"

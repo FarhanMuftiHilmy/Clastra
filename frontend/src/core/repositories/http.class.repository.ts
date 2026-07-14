@@ -9,6 +9,7 @@ import { HttpClient } from './http.client';
 
 export class HttpClassRepository implements IClassRepository {
   async getAll(): Promise<Class[]> {
+    console.log('Fetching all classes');
     return HttpClient.get<Class[]>('/classes');
   }
 
@@ -21,10 +22,12 @@ export class HttpClassRepository implements IClassRepository {
   }
 
   async create(classData: Omit<Class, 'id'>): Promise<Class> {
+    console.log('Creating class:', classData);
     return HttpClient.post<Class>('/classes', classData);
   }
 
   async update(classData: Class): Promise<Class> {
+    console.log('Updating class:', classData);
     return HttpClient.put<Class>(`/classes/${classData.id}`, classData);
   }
 
