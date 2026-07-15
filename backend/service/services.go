@@ -1,14 +1,20 @@
 package service
 
 import (
+	"bytes"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"scholasync/backend/models"
 	"scholasync/backend/repository"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type StudentService struct {
@@ -209,11 +215,13 @@ func (cs *ClassService) validateClass(c *models.Class) []models.ErrorDetail {
 }
 
 type TeacherService struct {
-	Repo repository.TeacherRepository
+	Repo         repository.TeacherRepository
+	ResendAPIKey string
+	FrontendURL  string
 }
 
-func NewTeacherService(repo repository.TeacherRepository) *TeacherService {
-	return &TeacherService{Repo: repo}
+func NewTeacherService(repo repository.TeacherRepository, resendKey, frontendURL string) *TeacherService {
+	return &TeacherService{Repo: repo, ResendAPIKey: resendKey, FrontendURL: frontendURL}
 }
 
 func (ts *TeacherService) GetAll() ([]models.Teacher, error) {
@@ -235,27 +243,153 @@ func (ts *TeacherService) Create(teacher *models.Teacher) (*models.ProblemDetail
 		}, nil
 	}
 
-	all, err := ts.Repo.GetAll()
+	existing, err := ts.Repo.GetByEmail(teacher.Email)
 	if err != nil {
 		return nil, err
 	}
-	for _, existing := range all {
-		if existing.Email == teacher.Email {
-			return &models.ProblemDetails{
-				Type:   "https://scholasync.edu/errors/conflict",
-				Title:  "Conflict Detected",
-				Status: 409,
-				Detail: fmt.Sprintf("A teacher with email '%s' is already registered.", teacher.Email),
-			}, nil
-		}
+	if existing != nil {
+		return &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/conflict",
+			Title:  "Conflict Detected",
+			Status: 409,
+			Detail: fmt.Sprintf("A teacher with email '%s' is already registered.", teacher.Email),
+		}, nil
 	}
+
+	teacher.ID = fmt.Sprintf("t_%d", time.Now().UnixNano())
+	teacher.PasswordHash = ""
+	teacher.ActivationToken = ts.generateActivationToken()
+	teacher.IsActive = false
 
 	err = ts.Repo.Create(teacher)
 	if err != nil {
 		return nil, err
 	}
 
+	if err := ts.sendActivationEmail(teacher); err != nil {
+		return nil, err
+	}
+
 	return nil, nil
+}
+
+func (ts *TeacherService) Activate(token, password string) (*models.Teacher, *models.ProblemDetails, error) {
+	if token == "" {
+		return nil, &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/validation-failure",
+			Title:  "Missing Activation Token",
+			Status: 400,
+			Detail: "Activation token is required.",
+		}, nil
+	}
+
+	if len(password) < 8 {
+		return nil, &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/validation-failure",
+			Title:  "Weak Password",
+			Status: 422,
+			Detail: "Password must be at least 8 characters long.",
+		}, nil
+	}
+
+	teacher, err := ts.Repo.GetByActivationToken(token)
+	if err != nil {
+		return nil, nil, err
+	}
+	if teacher == nil {
+		return nil, &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/not-found",
+			Title:  "Invalid Activation Token",
+			Status: 400,
+			Detail: "The provided activation token is invalid or expired.",
+		}, nil
+	}
+	if teacher.IsActive {
+		return nil, &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/conflict",
+			Title:  "Already Activated",
+			Status: 409,
+			Detail: "This account has already been activated.",
+		}, nil
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	teacher.PasswordHash = string(hash)
+	teacher.ActivationToken = ""
+	teacher.IsActive = true
+
+	if err := ts.Repo.Update(teacher); err != nil {
+		return nil, nil, err
+	}
+
+	return teacher, nil, nil
+}
+
+func (ts *TeacherService) generateActivationToken() string {
+	randomBytes := make([]byte, 24)
+	_, _ = rand.Read(randomBytes)
+	return hex.EncodeToString(randomBytes)
+}
+
+func (ts *TeacherService) sendActivationEmail(teacher *models.Teacher) error {
+	if ts.ResendAPIKey == "" {
+		fmt.Printf("[WARN] RESEND_API_KEY not configured. Skipping activation email for %s\n", teacher.Email)
+		return nil
+	}
+
+	if ts.FrontendURL == "" {
+		return fmt.Errorf("frontend URL is not configured for activation email")
+	}
+
+	activationURL := fmt.Sprintf("%s/?activationToken=%s", ts.FrontendURL, teacher.ActivationToken)
+
+	type resendPayload struct {
+		From    string   `json:"from"`
+		To      []string `json:"to"`
+		Subject string   `json:"subject"`
+		Html    string   `json:"html"`
+		Text    string   `json:"text"`
+	}
+
+	payload := resendPayload{
+		From:    "Clastra <no-reply@clastra.app>",
+		To:      []string{teacher.Email},
+		Subject: "Activate your Clastra teacher account",
+		Html:    fmt.Sprintf(`<p>Hello %s,</p><p>Please click the link below to set your password and activate your account:</p><p><a href="%s">Activate your account</a></p><p>If you did not request this account, please ignore this email.</p>`, teacher.Name, activationURL),
+		Text:    fmt.Sprintf("Hello %s,\n\nPlease open the following link to set your password and activate your account:\n%s\n\nIf you did not request this account, ignore this email.", teacher.Name, activationURL),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, "https://api.resend.com/emails", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ts.ResendAPIKey))
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		var serverErr struct {
+			Error string `json:"error"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&serverErr)
+		return fmt.Errorf("failed to send activation email: %s", serverErr.Error)
+	}
+
+	return nil
 }
 
 func (ts *TeacherService) validateTeacher(teacher *models.Teacher) []models.ErrorDetail {
@@ -359,13 +493,35 @@ func (as *AuthService) Login(req models.LoginRequest) (*models.CurrentUser, *mod
 		userID = "admin_1"
 		userName = "Principal Arthur"
 	} else if req.Role == models.RoleTeacher {
-		// Verify email exists in db
 		teacher, err := as.TeacherRepo.GetByEmail(req.Email)
 		if err != nil {
 			return nil, nil, err
 		}
-		// Assuming password is "teacher123" for seed profiles for testing
-		if teacher == nil || req.Password != "teacher123" {
+		if teacher == nil {
+			return nil, &models.ProblemDetails{
+				Type:   "https://scholasync.edu/errors/unauthorized",
+				Title:  "Authentication Failure",
+				Status: 401,
+				Detail: "The email or password provided is incorrect.",
+			}, nil
+		}
+		if !teacher.IsActive {
+			return nil, &models.ProblemDetails{
+				Type:   "https://scholasync.edu/errors/forbidden",
+				Title:  "Account Not Activated",
+				Status: 403,
+				Detail: "This teacher account has not been activated yet.",
+			}, nil
+		}
+		if teacher.PasswordHash == "" {
+			return nil, &models.ProblemDetails{
+				Type:   "https://scholasync.edu/errors/unauthorized",
+				Title:  "Authentication Failure",
+				Status: 401,
+				Detail: "The email or password provided is incorrect.",
+			}, nil
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(teacher.PasswordHash), []byte(req.Password)); err != nil {
 			return nil, &models.ProblemDetails{
 				Type:   "https://scholasync.edu/errors/unauthorized",
 				Title:  "Authentication Failure",

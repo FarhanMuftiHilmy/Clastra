@@ -35,10 +35,18 @@ type Class struct {
 }
 
 type Teacher struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Email   string `json:"email"`
-	Subject string `json:"subject"`
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Email           string `json:"email"`
+	Subject         string `json:"subject"`
+	PasswordHash    string `json:"-"`
+	ActivationToken string `json:"-"`
+	IsActive        bool   `json:"isActive"`
+}
+
+type TeacherActivationRequest struct {
+	Token    string `json:"token"`
+	Password string `json:"password"`
 }
 
 type StudentStatus struct {

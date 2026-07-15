@@ -43,7 +43,7 @@ func main() {
 	// 4. Initialize Services (inject repos)
 	studentServ := service.NewStudentService(studentRepo, attendanceRepo)
 	classServ := service.NewClassService(classRepo, studentRepo, attendanceRepo)
-	teacherServ := service.NewTeacherService(teacherRepo)
+	teacherServ := service.NewTeacherService(teacherRepo, cfg.ResendAPIKey, cfg.FrontendURL)
 	attendanceServ := service.NewAttendanceService(attendanceRepo)
 	authServ := service.NewAuthService(teacherRepo, cfg.JWTSecret)
 
@@ -99,6 +99,7 @@ func main() {
 	// Teachers Lookup
 	mux.Handle("GET /api/v1/teachers", staffChain(ctrl.HandleGetTeachers))
 	mux.Handle("POST /api/v1/teachers", adminChain(ctrl.HandleCreateTeacher))
+	mux.Handle("POST /api/v1/teachers/activate", http.HandlerFunc(ctrl.HandleActivateTeacher))
 
 	// Attendance Ledger
 	mux.Handle("GET /api/v1/attendance", staffChain(ctrl.HandleGetAttendance))

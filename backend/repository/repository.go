@@ -28,7 +28,9 @@ type TeacherRepository interface {
 	GetAll() ([]models.Teacher, error)
 	GetByID(id string) (*models.Teacher, error)
 	Create(teacher *models.Teacher) error
+	Update(teacher *models.Teacher) error
 	GetByEmail(email string) (*models.Teacher, error)
+	GetByActivationToken(token string) (*models.Teacher, error)
 }
 
 type AttendanceRepository interface {
@@ -185,7 +187,7 @@ func NewPostgresTeacherRepository(db *sql.DB) TeacherRepository {
 }
 
 func (r *PostgresTeacherRepository) GetAll() ([]models.Teacher, error) {
-	query := "SELECT id, name, email, subject FROM teachers ORDER BY name ASC"
+	query := "SELECT id, name, email, subject, password_hash, activation_token, is_active FROM teachers ORDER BY name ASC"
 	rows, err := r.DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -195,9 +197,13 @@ func (r *PostgresTeacherRepository) GetAll() ([]models.Teacher, error) {
 	var teachers []models.Teacher
 	for rows.Next() {
 		var t models.Teacher
-		if err := rows.Scan(&t.ID, &t.Name, &t.Email, &t.Subject); err != nil {
+		var passwordHash sql.NullString
+		var activationToken sql.NullString
+		if err := rows.Scan(&t.ID, &t.Name, &t.Email, &t.Subject, &passwordHash, &activationToken, &t.IsActive); err != nil {
 			return nil, err
 		}
+		t.PasswordHash = passwordHash.String
+		t.ActivationToken = activationToken.String
 		teachers = append(teachers, t)
 	}
 	return teachers, nil
@@ -205,32 +211,62 @@ func (r *PostgresTeacherRepository) GetAll() ([]models.Teacher, error) {
 
 func (r *PostgresTeacherRepository) GetByID(id string) (*models.Teacher, error) {
 	var t models.Teacher
-	query := "SELECT id, name, email, subject FROM teachers WHERE id = $1"
-	err := r.DB.QueryRow(query, id).Scan(&t.ID, &t.Name, &t.Email, &t.Subject)
+	query := "SELECT id, name, email, subject, password_hash, activation_token, is_active FROM teachers WHERE id = $1"
+	var passwordHash sql.NullString
+	var activationToken sql.NullString
+	err := r.DB.QueryRow(query, id).Scan(&t.ID, &t.Name, &t.Email, &t.Subject, &passwordHash, &activationToken, &t.IsActive)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
+	t.PasswordHash = passwordHash.String
+	t.ActivationToken = activationToken.String
 	return &t, nil
 }
 
 func (r *PostgresTeacherRepository) Create(t *models.Teacher) error {
 	t.ID = fmt.Sprintf("t_%d", time.Now().UnixNano())
-	query := "INSERT INTO teachers (id, name, email, subject) VALUES ($1, $2, $3, $4)"
-	_, err := r.DB.Exec(query, t.ID, t.Name, t.Email, t.Subject)
+	query := "INSERT INTO teachers (id, name, email, subject, password_hash, activation_token, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7)"
+	_, err := r.DB.Exec(query, t.ID, t.Name, t.Email, t.Subject, t.PasswordHash, t.ActivationToken, t.IsActive)
 	return err
 }
 
-func (r *PostgresTeacherRepository) GetByEmail(email string) (*models.Teacher, error) {
+func (r *PostgresTeacherRepository) Update(t *models.Teacher) error {
+	query := "UPDATE teachers SET name = $1, email = $2, subject = $3, password_hash = $4, activation_token = $5, is_active = $6 WHERE id = $7"
+	_, err := r.DB.Exec(query, t.Name, t.Email, t.Subject, t.PasswordHash, t.ActivationToken, t.IsActive, t.ID)
+	return err
+}
+
+func (r *PostgresTeacherRepository) GetByActivationToken(token string) (*models.Teacher, error) {
 	var t models.Teacher
-	query := "SELECT id, name, email, subject FROM teachers WHERE email = $1"
-	err := r.DB.QueryRow(query, email).Scan(&t.ID, &t.Name, &t.Email, &t.Subject)
+	query := "SELECT id, name, email, subject, password_hash, activation_token, is_active FROM teachers WHERE activation_token = $1"
+	var passwordHash sql.NullString
+	var activationToken sql.NullString
+	err := r.DB.QueryRow(query, token).Scan(&t.ID, &t.Name, &t.Email, &t.Subject, &passwordHash, &activationToken, &t.IsActive)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
+	t.PasswordHash = passwordHash.String
+	t.ActivationToken = activationToken.String
+	return &t, nil
+}
+
+func (r *PostgresTeacherRepository) GetByEmail(email string) (*models.Teacher, error) {
+	var t models.Teacher
+	query := "SELECT id, name, email, subject, password_hash, activation_token, is_active FROM teachers WHERE email = $1"
+	var passwordHash sql.NullString
+	var activationToken sql.NullString
+	err := r.DB.QueryRow(query, email).Scan(&t.ID, &t.Name, &t.Email, &t.Subject, &passwordHash, &activationToken, &t.IsActive)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	t.PasswordHash = passwordHash.String
+	t.ActivationToken = activationToken.String
 	return &t, nil
 }
 

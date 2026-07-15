@@ -8,10 +8,12 @@ import (
 )
 
 type Config struct {
-	Port        string
-	DatabaseURL string
-	JWTSecret   string
-	AllowedCORS string
+	Port         string
+	DatabaseURL  string
+	JWTSecret    string
+	AllowedCORS  string
+	FrontendURL  string
+	ResendAPIKey string
 }
 
 func Load() *Config {
@@ -38,15 +40,24 @@ func Load() *Config {
 		jwtSecret = "scholasync-super-secret-signature-key-2026"
 	}
 
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+
+	resendKey := os.Getenv("RESEND_API_KEY")
+
 	cors := os.Getenv("ALLOWED_CORS")
 	if cors == "" {
 		cors = "http://localhost:3000"
 	}
 
 	return &Config{
-		Port:        port,
-		DatabaseURL: dbURL,
-		JWTSecret:   jwtSecret,
-		AllowedCORS: cors,
+		Port:         port,
+		DatabaseURL:  dbURL,
+		JWTSecret:    jwtSecret,
+		AllowedCORS:  cors,
+		FrontendURL:  frontendURL,
+		ResendAPIKey: resendKey,
 	}
 }

@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Student, Class, Teacher, AttendanceRecord, CurrentUser, AttendanceStatus, UserRole } from './types';
 import { INITIAL_TEACHERS } from './data';
 import AuthScreen from './components/AuthScreen';
+import ActivationScreen from './components/ActivationScreen';
 import AdminDashboard from './components/AdminDashboard';
 import TeacherPortal from './components/TeacherPortal';
 import DeviceFrame from './components/DeviceFrame';
@@ -20,6 +21,8 @@ export default function App() {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [isActivationMode, setIsActivationMode] = useState(false);
+  const [activationToken, setActivationToken] = useState('');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // --- PERSISTENCE LOADER ---
@@ -51,6 +54,14 @@ export default function App() {
   };
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('activationToken');
+
+    if (token) {
+      setActivationToken(token);
+      setIsActivationMode(true);
+    }
+
     loadData();
   }, []);
 
@@ -69,9 +80,18 @@ export default function App() {
     try {
       await authService.logout();
       setCurrentUser(null);
+      setIsActivationMode(false);
+      setActivationToken('');
     } catch (error) {
       console.error('Logout error:', error);
     }
+  };
+
+  const handleActivateTeacher = async (token: string, password: string) => {
+    const message = await authService.activateTeacher(token, password);
+    setIsActivationMode(false);
+    window.history.replaceState({}, '', window.location.pathname);
+    return message;
   };
 
   // --- ADMIN ACTIONS: STUDENT MANAGERS ---
@@ -199,6 +219,20 @@ export default function App() {
           <p className="text-xs font-bold text-slate-500 tracking-wider">Loading School Ledger State...</p>
         </div>
       </div>
+    );
+  }
+
+  if (isActivationMode && activationToken) {
+    return (
+      <ActivationScreen
+        activationToken={activationToken}
+        onActivate={handleActivateTeacher}
+        onCancel={() => {
+          setIsActivationMode(false);
+          setActivationToken('');
+          window.history.replaceState({}, '', window.location.pathname);
+        }}
+      />
     );
   }
 

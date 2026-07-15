@@ -44,6 +44,19 @@ export class AuthService {
     }
   }
 
+  async activateTeacher(token: string, password: string): Promise<string> {
+    try {
+      const result = await HttpClient.post<{ message: string; email: string }>('/teachers/activate', {
+        token,
+        password,
+      });
+      return result.message;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to activate account. Please try again.';
+      throw new Error(message);
+    }
+  }
+
   async logout(): Promise<void> {
     localStorage.removeItem(STORAGE_KEY);
   }

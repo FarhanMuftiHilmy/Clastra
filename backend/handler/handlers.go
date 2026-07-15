@@ -292,6 +292,29 @@ func (c *Controller) HandleCreateTeacher(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusCreated, teacher)
 }
 
+func (c *Controller) HandleActivateTeacher(w http.ResponseWriter, r *http.Request) {
+	var req models.TeacherActivationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON activation payload.")
+		return
+	}
+
+	teacher, problem, err := c.Teacher.Activate(req.Token, req.Password)
+	if err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Activation Error", err.Error())
+		return
+	}
+	if problem != nil {
+		writeJSON(w, problem.Status, problem)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "Account activated successfully.",
+		"email":   teacher.Email,
+	})
+}
+
 // Attendance handlers
 func (c *Controller) HandleGetAttendance(w http.ResponseWriter, r *http.Request) {
 	classID := r.URL.Query().Get("classId")
