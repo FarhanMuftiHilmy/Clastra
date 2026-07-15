@@ -25,6 +25,7 @@ interface AdminDashboardProps {
   onAddStudent: (student: Omit<Student, 'id'>) => void;
   onUpdateStudent: (student: Student) => void;
   onDeleteStudent: (id: string) => void;
+  onAddTeacher: (teacher: Omit<Teacher, 'id'>) => void;
   onAddClass: (cls: Omit<Class, 'id'>) => void;
   onUpdateClass: (cls: Class) => void;
   onDeleteClass: (id: string) => void;
@@ -32,22 +33,28 @@ interface AdminDashboardProps {
   adminName: string;
 }
 
-type TabType = 'overview' | 'students' | 'classes' | 'attendance' | 'reports';
+type TabType = 'overview' | 'students' | 'classes' | 'teachers' | 'attendance' | 'reports';
 
 export default function AdminDashboard({
-  students,
-  classes,
-  teachers,
-  attendanceRecords,
+  students: studentsProp,
+  classes: classesProp,
+  teachers: teachersProp,
+  attendanceRecords: attendanceRecordsProp,
   onAddStudent,
   onUpdateStudent,
   onDeleteStudent,
+  onAddTeacher,
   onAddClass,
   onUpdateClass,
   onDeleteClass,
   onLogout,
   adminName,
 }: AdminDashboardProps) {
+  const students = studentsProp ?? [];
+  const classes = classesProp ?? [];
+  const teachers = teachersProp ?? [];
+  const attendanceRecords = attendanceRecordsProp ?? [];
+
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   // --- Search / Filters State ---
@@ -76,6 +83,13 @@ export default function AdminDashboard({
   const [studentFormError, setStudentFormError] = useState<string | null>(null);
 
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
+  const [teacherForm, setTeacherForm] = useState({
+    name: '',
+    email: '',
+    subject: '',
+  });
+  const [teacherFormError, setTeacherFormError] = useState<string | null>(null);
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [classForm, setClassForm] = useState({
     name: '',
@@ -329,6 +343,23 @@ export default function AdminDashboard({
     setIsStudentModalOpen(true);
   };
 
+  const handleTeacherFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setTeacherFormError(null);
+
+    if (!teacherForm.name.trim()) return setTeacherFormError('Teacher name is required');
+    if (!teacherForm.email.trim() || !teacherForm.email.includes('@')) return setTeacherFormError('Enter a valid email address');
+    if (!teacherForm.subject.trim()) return setTeacherFormError('Subject is required');
+
+    const emailDup = teachers.some(t => t.email.toLowerCase() === teacherForm.email.toLowerCase());
+    if (emailDup) return setTeacherFormError('This email is already registered');
+
+    onAddTeacher(teacherForm);
+
+    setIsTeacherModalOpen(false);
+    setTeacherForm({ name: '', email: '', subject: '' });
+  };
+
   // Handle Class Form Submit
   const handleClassFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -492,6 +523,20 @@ export default function AdminDashboard({
 
               <button
                 type="button"
+                id="sidebar-tab-teachers"
+                onClick={() => setActiveTab('teachers')}
+                className={`w-full flex items-center gap-3 py-2.5 px-6 transition-all duration-150 cursor-pointer text-sm font-semibold ${
+                  activeTab === 'teachers' 
+                    ? 'bg-indigo-50/70 text-indigo-700 border-l-4 border-indigo-600 pl-5' 
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent pl-5'
+                }`}
+              >
+                <UserPlus className="w-4 h-4" />
+                Manage Teachers
+              </button>
+
+              <button
+                type="button"
                 id="sidebar-tab-attendance"
                 onClick={() => setActiveTab('attendance')}
                 className={`w-full flex items-center gap-3 py-2.5 px-6 transition-all duration-150 cursor-pointer text-sm font-semibold ${
@@ -537,7 +582,7 @@ export default function AdminDashboard({
           
           {/* Mobile Navigation Header */}
           <div className="flex md:hidden items-center overflow-x-auto gap-2 pb-4 mb-4 border-b border-slate-200">
-            {(['overview', 'students', 'classes', 'attendance', 'reports'] as TabType[]).map(tab => (
+            {(['overview', 'students', 'classes', 'teachers', 'attendance', 'reports'] as TabType[]).map(tab => (
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); setStudentPage(1); }}
@@ -1011,7 +1056,67 @@ export default function AdminDashboard({
                 </div>
               )}
 
-              {/* 4. ATTENDANCE LOG TAB */}
+              {/* 4. TEACHERS TAB */}
+              {activeTab === 'teachers' && (
+                <div id="teachers-tab-view" className="space-y-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Manage Teachers</h2>
+                      <p className="text-sm text-slate-500">Create teacher accounts that can sign in and take attendance afterward</p>
+                    </div>
+                    <button
+                      type="button"
+                      id="add-teacher-btn"
+                      onClick={() => {
+                        setTeacherForm({ name: '', email: '', subject: '' });
+                        setTeacherFormError(null);
+                        setIsTeacherModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer select-none"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      Add Teacher
+                    </button>
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                            <th className="py-4 px-6">Name</th>
+                            <th className="py-4 px-6">Email</th>
+                            <th className="py-4 px-6">Subject</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
+                          {teachers.map(teacher => (
+                            <tr key={teacher.id} className="hover:bg-slate-50/55 transition-colors">
+                              <td className="py-3.5 px-6 font-semibold text-slate-900">{teacher.name}</td>
+                              <td className="py-3.5 px-6 text-slate-500">{teacher.email}</td>
+                              <td className="py-3.5 px-6">
+                                <span className="py-1 px-2.5 bg-violet-50 text-violet-700 rounded-lg text-[11px] font-bold">
+                                  {teacher.subject}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                          {teachers.length === 0 && (
+                            <tr>
+                              <td colSpan={3} className="py-10 text-center text-slate-400 text-xs">
+                                <UserCheck className="w-8 h-8 mx-auto mb-2.5 stroke-1 text-slate-300" />
+                                No teachers registered yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 5. ATTENDANCE LOG TAB */}
               {activeTab === 'attendance' && (
                 <div id="attendance-tab-view" className="space-y-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1378,6 +1483,93 @@ export default function AdminDashboard({
                   className="py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md transition-colors cursor-pointer"
                 >
                   {editingStudent ? 'Save Student' : 'Enroll Student'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* --- ADD TEACHER MODAL DIALOG --- */}
+      {isTeacherModalOpen && (
+        <div id="teacher-modal-container" className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100"
+          >
+            <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+              <h3 className="font-bold text-sm tracking-tight">Add New Teacher Account</h3>
+              <button 
+                type="button" 
+                onClick={() => setIsTeacherModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleTeacherFormSubmit} className="p-6 space-y-4">
+              {teacherFormError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>{teacherFormError}</span>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Full Name</label>
+                <input
+                  id="teacher-form-name"
+                  type="text"
+                  required
+                  placeholder="e.g. Sarah Jenkins"
+                  value={teacherForm.name}
+                  onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-800 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
+                <input
+                  id="teacher-form-email"
+                  type="email"
+                  required
+                  placeholder="e.g. sarah@school.edu"
+                  value={teacherForm.email}
+                  onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-800 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Subject / Department</label>
+                <input
+                  id="teacher-form-subject"
+                  type="text"
+                  required
+                  placeholder="e.g. Mathematics"
+                  value={teacherForm.subject}
+                  onChange={(e) => setTeacherForm({ ...teacherForm, subject: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-800 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsTeacherModalOpen(false)}
+                  className="py-2 px-4 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  id="teacher-form-submit-btn"
+                  className="py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md transition-colors cursor-pointer"
+                >
+                  Create Teacher Account
                 </button>
               </div>
             </form>

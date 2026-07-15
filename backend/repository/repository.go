@@ -27,6 +27,7 @@ type ClassRepository interface {
 type TeacherRepository interface {
 	GetAll() ([]models.Teacher, error)
 	GetByID(id string) (*models.Teacher, error)
+	Create(teacher *models.Teacher) error
 	GetByEmail(email string) (*models.Teacher, error)
 }
 
@@ -212,6 +213,13 @@ func (r *PostgresTeacherRepository) GetByID(id string) (*models.Teacher, error) 
 		return nil, err
 	}
 	return &t, nil
+}
+
+func (r *PostgresTeacherRepository) Create(t *models.Teacher) error {
+	t.ID = fmt.Sprintf("t_%d", time.Now().UnixNano())
+	query := "INSERT INTO teachers (id, name, email, subject) VALUES ($1, $2, $3, $4)"
+	_, err := r.DB.Exec(query, t.ID, t.Name, t.Email, t.Subject)
+	return err
 }
 
 func (r *PostgresTeacherRepository) GetByEmail(email string) (*models.Teacher, error) {

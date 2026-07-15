@@ -19,4 +19,8 @@ export class HttpTeacherRepository implements ITeacherRepository {
       return null;
     }
   }
+
+  async create(teacherData: Omit<Teacher, 'id'>): Promise<Teacher> {
+    return HttpClient.post<Teacher>('/teachers', teacherData);
+  }
 }

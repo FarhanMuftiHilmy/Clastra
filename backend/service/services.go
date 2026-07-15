@@ -224,6 +224,59 @@ func (ts *TeacherService) GetByID(id string) (*models.Teacher, error) {
 	return ts.Repo.GetByID(id)
 }
 
+func (ts *TeacherService) Create(teacher *models.Teacher) (*models.ProblemDetails, error) {
+	if errs := ts.validateTeacher(teacher); len(errs) > 0 {
+		return &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/validation-failure",
+			Title:  "Invalid Request Parameters",
+			Status: 422,
+			Detail: "One or more request parameters failed validation constraint checks.",
+			Errors: errs,
+		}, nil
+	}
+
+	all, err := ts.Repo.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	for _, existing := range all {
+		if existing.Email == teacher.Email {
+			return &models.ProblemDetails{
+				Type:   "https://scholasync.edu/errors/conflict",
+				Title:  "Conflict Detected",
+				Status: 409,
+				Detail: fmt.Sprintf("A teacher with email '%s' is already registered.", teacher.Email),
+			}, nil
+		}
+	}
+
+	err = ts.Repo.Create(teacher)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func (ts *TeacherService) validateTeacher(teacher *models.Teacher) []models.ErrorDetail {
+	var errs []models.ErrorDetail
+	if len(teacher.Name) == 0 {
+		errs = append(errs, models.ErrorDetail{Field: "name", Message: "Name cannot be empty"})
+	}
+	if len(teacher.Subject) == 0 {
+		errs = append(errs, models.ErrorDetail{Field: "subject", Message: "Subject cannot be empty"})
+	}
+	if len(teacher.Email) == 0 {
+		errs = append(errs, models.ErrorDetail{Field: "email", Message: "Email cannot be empty"})
+	} else {
+		emailRegex := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
+		if !emailRegex.MatchString(teacher.Email) {
+			errs = append(errs, models.ErrorDetail{Field: "email", Message: "Must be a valid email format"})
+		}
+	}
+	return errs
+}
+
 type AttendanceService struct {
 	Repo repository.AttendanceRepository
 }

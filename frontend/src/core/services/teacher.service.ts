@@ -16,4 +16,8 @@ export class TeacherService {
   async getTeacherById(id: string): Promise<Teacher | null> {
     return this.teacherRepo.getById(id);
   }
+
+  async addTeacher(teacherData: Omit<Teacher, 'id'>): Promise<Teacher> {
+    return this.teacherRepo.create(teacherData);
+  }
 }

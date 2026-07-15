@@ -98,6 +98,7 @@ func main() {
 
 	// Teachers Lookup
 	mux.Handle("GET /api/v1/teachers", staffChain(ctrl.HandleGetTeachers))
+	mux.Handle("POST /api/v1/teachers", adminChain(ctrl.HandleCreateTeacher))
 
 	// Attendance Ledger
 	mux.Handle("GET /api/v1/attendance", staffChain(ctrl.HandleGetAttendance))

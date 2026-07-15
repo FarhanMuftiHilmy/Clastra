@@ -31,4 +31,15 @@ export class InMemoryTeacherRepository implements ITeacherRepository {
     const list = await this.load();
     return list.find(t => t.id === id) || null;
   }
+
+  async create(teacherData: Omit<Teacher, 'id'>): Promise<Teacher> {
+    const list = await this.load();
+    const newTeacher: Teacher = {
+      ...teacherData,
+      id: `t_${Date.now()}`,
+    };
+    list.push(newTeacher);
+    this.saveToStorage(list);
+    return newTeacher;
+  }
 }

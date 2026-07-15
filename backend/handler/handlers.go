@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"scholasync/backend/models"
 	"scholasync/backend/service"
@@ -183,7 +182,6 @@ func (c *Controller) HandleDeleteStudent(w http.ResponseWriter, r *http.Request)
 
 // Classes Handlers
 func (c *Controller) HandleGetClasses(w http.ResponseWriter, r *http.Request) {
-	fmt.Print("masuk sini HandleGetClasses")
 	classes, err := c.Class.GetAll()
 	if err != nil {
 		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Database Read Error", err.Error())
@@ -213,7 +211,6 @@ func (c *Controller) HandleGetClassByID(w http.ResponseWriter, r *http.Request) 
 }
 
 func (c *Controller) HandleCreateClass(w http.ResponseWriter, r *http.Request) {
-	fmt.Print("masuk sini HandleCreateClass")
 	var cl models.Class
 	if err := json.NewDecoder(r.Body).Decode(&cl); err != nil {
 		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON class registration payload.")
@@ -273,6 +270,26 @@ func (c *Controller) HandleGetTeachers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, teachers)
+}
+
+func (c *Controller) HandleCreateTeacher(w http.ResponseWriter, r *http.Request) {
+	var teacher models.Teacher
+	if err := json.NewDecoder(r.Body).Decode(&teacher); err != nil {
+		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON teacher registration payload.")
+		return
+	}
+
+	problem, err := c.Teacher.Create(&teacher)
+	if err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Registration Error", err.Error())
+		return
+	}
+	if problem != nil {
+		writeJSON(w, problem.Status, problem)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, teacher)
 }
 
 // Attendance handlers

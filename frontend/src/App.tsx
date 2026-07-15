@@ -33,10 +33,15 @@ export default function App() {
         authService.getCurrentUser(),
       ]);
 
-      setTeachers(activeTeachers);
-      setClasses(activeClasses);
-      setStudents(activeStudents);
-      setAttendanceRecords(activeAttendance);
+      const normalizedTeachers = Array.isArray(activeTeachers) ? activeTeachers : [];
+      const normalizedClasses = Array.isArray(activeClasses) ? activeClasses : [];
+      const normalizedStudents = Array.isArray(activeStudents) ? activeStudents : [];
+      const normalizedAttendance = Array.isArray(activeAttendance) ? activeAttendance : [];
+
+      setTeachers(normalizedTeachers);
+      setClasses(normalizedClasses);
+      setStudents(normalizedStudents);
+      setAttendanceRecords(normalizedAttendance);
       setCurrentUser(activeUser);
     } catch (error) {
       console.error('Error loading initialization data from services:', error);
@@ -101,6 +106,17 @@ export default function App() {
       setAttendanceRecords(updatedAttendance);
     } catch (error) {
       console.error('Delete student error:', error);
+    }
+  };
+
+  // --- ADMIN ACTIONS: TEACHER MANAGERS ---
+  const handleAddTeacher = async (teacherData: Omit<Teacher, 'id'>) => {
+    try {
+      await teacherService.addTeacher(teacherData);
+      const updated = await teacherService.getAllTeachers();
+      setTeachers(updated);
+    } catch (error) {
+      console.error('Add teacher error:', error);
     }
   };
 
@@ -249,6 +265,7 @@ export default function App() {
           onAddStudent={handleAddStudent}
           onUpdateStudent={handleUpdateStudent}
           onDeleteStudent={handleDeleteStudent}
+          onAddTeacher={handleAddTeacher}
           onAddClass={handleAddClass}
           onUpdateClass={handleUpdateClass}
           onDeleteClass={handleDeleteClass}
