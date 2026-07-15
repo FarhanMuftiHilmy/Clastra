@@ -356,7 +356,7 @@ func (ts *TeacherService) sendActivationEmail(teacher *models.Teacher) error {
 	}
 
 	payload := resendPayload{
-		From:    "Clastra <no-reply@clastra.app>",
+		From:    "Clastra <no-reply@rech-it.com>",
 		To:      []string{teacher.Email},
 		Subject: "Activate your Clastra teacher account",
 		Html:    fmt.Sprintf(`<p>Hello %s,</p><p>Please click the link below to set your password and activate your account:</p><p><a href="%s">Activate your account</a></p><p>If you did not request this account, please ignore this email.</p>`, teacher.Name, activationURL),
