@@ -26,6 +26,8 @@ interface AdminDashboardProps {
   onUpdateStudent: (student: Student) => void;
   onDeleteStudent: (id: string) => void;
   onAddTeacher: (teacher: Omit<Teacher, 'id'>) => void;
+  onUpdateTeacher: (teacher: Teacher) => void;
+  onDeleteTeacher: (id: string) => void;
   onAddClass: (cls: Omit<Class, 'id'>) => void;
   onUpdateClass: (cls: Class) => void;
   onDeleteClass: (id: string) => void;
@@ -44,6 +46,8 @@ export default function AdminDashboard({
   onUpdateStudent,
   onDeleteStudent,
   onAddTeacher,
+  onUpdateTeacher,
+  onDeleteTeacher,
   onAddClass,
   onUpdateClass,
   onDeleteClass,
@@ -90,6 +94,7 @@ export default function AdminDashboard({
     subject: '',
   });
   const [teacherFormError, setTeacherFormError] = useState<string | null>(null);
+  const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [classForm, setClassForm] = useState({
     name: '',
@@ -351,13 +356,25 @@ export default function AdminDashboard({
     if (!teacherForm.email.trim() || !teacherForm.email.includes('@')) return setTeacherFormError('Enter a valid email address');
     if (!teacherForm.subject.trim()) return setTeacherFormError('Subject is required');
 
-    const emailDup = teachers.some(t => t.email.toLowerCase() === teacherForm.email.toLowerCase());
+    const emailDup = teachers.some(t => t.email.toLowerCase() === teacherForm.email.toLowerCase() && (!editingTeacher || t.id !== editingTeacher.id));
     if (emailDup) return setTeacherFormError('This email is already registered');
 
-    onAddTeacher(teacherForm);
+    if (editingTeacher) {
+      onUpdateTeacher({ ...editingTeacher, ...teacherForm });
+    } else {
+      onAddTeacher(teacherForm);
+    }
 
     setIsTeacherModalOpen(false);
+    setEditingTeacher(null);
     setTeacherForm({ name: '', email: '', subject: '' });
+  };
+
+  const handleOpenEditTeacher = (t: Teacher) => {
+    setEditingTeacher(t);
+    setTeacherForm({ name: t.name, email: t.email, subject: t.subject });
+    setTeacherFormError(null);
+    setIsTeacherModalOpen(true);
   };
 
   // Handle Class Form Submit
@@ -1068,6 +1085,7 @@ export default function AdminDashboard({
                       type="button"
                       id="add-teacher-btn"
                       onClick={() => {
+                        setEditingTeacher(null);
                         setTeacherForm({ name: '', email: '', subject: '' });
                         setTeacherFormError(null);
                         setIsTeacherModalOpen(true);
@@ -1087,6 +1105,7 @@ export default function AdminDashboard({
                             <th className="py-4 px-6">Name</th>
                             <th className="py-4 px-6">Email</th>
                             <th className="py-4 px-6">Subject</th>
+                            <th className="py-4 px-6 text-right">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
@@ -1098,6 +1117,28 @@ export default function AdminDashboard({
                                 <span className="py-1 px-2.5 bg-violet-50 text-violet-700 rounded-lg text-[11px] font-bold">
                                   {teacher.subject}
                                 </span>
+                              </td>
+                              <td className="py-3.5 px-6 text-right space-x-1.5 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditTeacher(teacher)}
+                                  className="p-1.5 hover:bg-slate-100 text-slate-600 hover:text-indigo-600 rounded-lg transition-colors cursor-pointer inline-flex"
+                                  title="Edit Teacher"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (confirm(`Are you sure you want to remove teacher ${teacher.name}?`)) {
+                                      onDeleteTeacher(teacher.id);
+                                    }
+                                  }}
+                                  className="p-1.5 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-lg transition-colors cursor-pointer inline-flex"
+                                  title="Delete Teacher"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                               </td>
                             </tr>
                           ))}
@@ -1499,7 +1540,7 @@ export default function AdminDashboard({
             className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100"
           >
             <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
-              <h3 className="font-bold text-sm tracking-tight">Add New Teacher Account</h3>
+              <h3 className="font-bold text-sm tracking-tight">{editingTeacher ? 'Edit Teacher Account' : 'Add New Teacher Account'}</h3>
               <button 
                 type="button" 
                 onClick={() => setIsTeacherModalOpen(false)}
@@ -1569,7 +1610,7 @@ export default function AdminDashboard({
                   id="teacher-form-submit-btn"
                   className="py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md transition-colors cursor-pointer"
                 >
-                  Create Teacher Account
+                  {editingTeacher ? 'Save Teacher' : 'Create Teacher Account'}
                 </button>
               </div>
             </form>

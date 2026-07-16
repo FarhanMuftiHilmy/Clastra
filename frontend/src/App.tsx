@@ -140,6 +140,26 @@ export default function App() {
     }
   };
 
+  const handleUpdateTeacher = async (updatedTeacher: Teacher) => {
+    try {
+      await teacherService.updateTeacher(updatedTeacher);
+      const updated = await teacherService.getAllTeachers();
+      setTeachers(updated);
+    } catch (error) {
+      console.error('Update teacher error:', error);
+    }
+  };
+
+  const handleDeleteTeacher = async (id: string) => {
+    try {
+      await teacherService.deleteTeacher(id);
+      const updated = await teacherService.getAllTeachers();
+      setTeachers(updated);
+    } catch (error) {
+      console.error('Delete teacher error:', error);
+    }
+  };
+
   // --- ADMIN ACTIONS: CLASS MANAGERS ---
   const handleAddClass = async (classData: Omit<Class, 'id'>) => {
     try {
@@ -300,6 +320,8 @@ export default function App() {
           onUpdateStudent={handleUpdateStudent}
           onDeleteStudent={handleDeleteStudent}
           onAddTeacher={handleAddTeacher}
+          onUpdateTeacher={handleUpdateTeacher}
+          onDeleteTeacher={handleDeleteTeacher}
           onAddClass={handleAddClass}
           onUpdateClass={handleUpdateClass}
           onDeleteClass={handleDeleteClass}

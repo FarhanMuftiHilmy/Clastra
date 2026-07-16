@@ -218,10 +218,11 @@ type TeacherService struct {
 	Repo         repository.TeacherRepository
 	ResendAPIKey string
 	FrontendURL  string
+	ClassRepo    repository.ClassRepository
 }
 
-func NewTeacherService(repo repository.TeacherRepository, resendKey, frontendURL string) *TeacherService {
-	return &TeacherService{Repo: repo, ResendAPIKey: resendKey, FrontendURL: frontendURL}
+func NewTeacherService(repo repository.TeacherRepository, classRepo repository.ClassRepository, resendKey, frontendURL string) *TeacherService {
+	return &TeacherService{Repo: repo, ClassRepo: classRepo, ResendAPIKey: resendKey, FrontendURL: frontendURL}
 }
 
 func (ts *TeacherService) GetAll() ([]models.Teacher, error) {
@@ -409,6 +410,54 @@ func (ts *TeacherService) validateTeacher(teacher *models.Teacher) []models.Erro
 		}
 	}
 	return errs
+}
+
+func (ts *TeacherService) Update(teacher *models.Teacher) (*models.ProblemDetails, error) {
+	if errs := ts.validateTeacher(teacher); len(errs) > 0 {
+		return &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/validation-failure",
+			Title:  "Invalid Request Parameters",
+			Status: 422,
+			Detail: "One or more request parameters failed validation constraint checks.",
+			Errors: errs,
+		}, nil
+	}
+
+	// Check email uniqueness excluding self
+	all, err := ts.Repo.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range all {
+		if t.Email == teacher.Email && t.ID != teacher.ID {
+			return &models.ProblemDetails{
+				Type:   "https://scholasync.edu/errors/conflict",
+				Title:  "Conflict Detected",
+				Status: 409,
+				Detail: fmt.Sprintf("Failed to update teacher. Email '%s' is already assigned to '%s'.", teacher.Email, t.Name),
+			}, nil
+		}
+	}
+
+	if err := ts.Repo.Update(teacher); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (ts *TeacherService) Delete(id string) error {
+	// Unassign teacher from any classes
+	classes, err := ts.ClassRepo.GetAll()
+	if err == nil {
+		for _, c := range classes {
+			if c.TeacherID == id {
+				c.TeacherID = ""
+				_ = ts.ClassRepo.Update(&c)
+			}
+		}
+	}
+
+	return ts.Repo.Delete(id)
 }
 
 type AttendanceService struct {

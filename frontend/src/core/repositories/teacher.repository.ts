@@ -42,4 +42,19 @@ export class InMemoryTeacherRepository implements ITeacherRepository {
     this.saveToStorage(list);
     return newTeacher;
   }
+
+  async update(teacher: Teacher): Promise<Teacher> {
+    const list = await this.load();
+    const idx = list.findIndex(t => t.id === teacher.id);
+    if (idx === -1) throw new Error('Teacher not found');
+    list[idx] = teacher;
+    this.saveToStorage(list);
+    return teacher;
+  }
+
+  async delete(id: string): Promise<void> {
+    const list = await this.load();
+    const filtered = list.filter(t => t.id !== id);
+    this.saveToStorage(filtered);
+  }
 }

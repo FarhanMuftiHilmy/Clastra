@@ -31,6 +31,7 @@ type TeacherRepository interface {
 	Update(teacher *models.Teacher) error
 	GetByEmail(email string) (*models.Teacher, error)
 	GetByActivationToken(token string) (*models.Teacher, error)
+	Delete(id string) error
 }
 
 type AttendanceRepository interface {
@@ -235,6 +236,12 @@ func (r *PostgresTeacherRepository) Create(t *models.Teacher) error {
 func (r *PostgresTeacherRepository) Update(t *models.Teacher) error {
 	query := "UPDATE teachers SET name = $1, email = $2, subject = $3, password_hash = $4, activation_token = $5, is_active = $6 WHERE id = $7"
 	_, err := r.DB.Exec(query, t.Name, t.Email, t.Subject, t.PasswordHash, t.ActivationToken, t.IsActive, t.ID)
+	return err
+}
+
+func (r *PostgresTeacherRepository) Delete(id string) error {
+	query := "DELETE FROM teachers WHERE id = $1"
+	_, err := r.DB.Exec(query, id)
 	return err
 }
 

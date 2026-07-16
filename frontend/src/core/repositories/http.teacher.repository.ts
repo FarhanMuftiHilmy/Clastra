@@ -23,4 +23,12 @@ export class HttpTeacherRepository implements ITeacherRepository {
   async create(teacherData: Omit<Teacher, 'id'>): Promise<Teacher> {
     return HttpClient.post<Teacher>('/teachers', teacherData);
   }
+
+  async update(teacher: Teacher): Promise<Teacher> {
+    return HttpClient.put<Teacher>(`/teachers/${teacher.id}`, teacher);
+  }
+
+  async delete(id: string): Promise<void> {
+    return HttpClient.delete(`/teachers/${id}`);
+  }
 }

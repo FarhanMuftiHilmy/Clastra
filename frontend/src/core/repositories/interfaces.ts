@@ -25,6 +25,8 @@ export interface ITeacherRepository {
   getAll(): Promise<Teacher[]>;
   getById(id: string): Promise<Teacher | null>;
   create(teacher: Omit<Teacher, 'id'>): Promise<Teacher>;
+  update(teacher: Teacher): Promise<Teacher>;
+  delete(id: string): Promise<void>;
 }
 
 export interface IAttendanceRepository {

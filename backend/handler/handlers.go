@@ -315,6 +315,38 @@ func (c *Controller) HandleActivateTeacher(w http.ResponseWriter, r *http.Reques
 	})
 }
 
+func (c *Controller) HandleUpdateTeacher(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var t models.Teacher
+	if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
+		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON teacher modification payload.")
+		return
+	}
+	t.ID = id
+
+	problem, err := c.Teacher.Update(&t)
+	if err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Modification Error", err.Error())
+		return
+	}
+	if problem != nil {
+		writeJSON(w, problem.Status, problem)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, t)
+}
+
+func (c *Controller) HandleDeleteTeacher(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	err := c.Teacher.Delete(id)
+	if err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Deletion Error", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // Attendance handlers
 func (c *Controller) HandleGetAttendance(w http.ResponseWriter, r *http.Request) {
 	classID := r.URL.Query().Get("classId")

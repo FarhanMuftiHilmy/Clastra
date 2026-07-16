@@ -20,4 +20,12 @@ export class TeacherService {
   async addTeacher(teacherData: Omit<Teacher, 'id'>): Promise<Teacher> {
     return this.teacherRepo.create(teacherData);
   }
+
+  async updateTeacher(teacher: Teacher): Promise<Teacher> {
+    return this.teacherRepo.update(teacher);
+  }
+
+  async deleteTeacher(id: string): Promise<void> {
+    return this.teacherRepo.delete(id);
+  }
 }
