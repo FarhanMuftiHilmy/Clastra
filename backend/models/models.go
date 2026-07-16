@@ -18,12 +18,13 @@ type CurrentUser struct {
 }
 
 type Student struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	RollNumber string `json:"rollNumber"`
-	Email      string `json:"email"`
-	ClassID    string `json:"classId"`
-	Gender     string `json:"gender"`
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	RollNumber string   `json:"rollNumber"`
+	Email      string   `json:"email"`
+	ClassID    string   `json:"classId"`
+	ClassIds   []string `json:"classIds,omitempty"`
+	Gender     string   `json:"gender"`
 }
 
 type Class struct {

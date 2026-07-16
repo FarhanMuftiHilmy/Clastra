@@ -180,6 +180,53 @@ func (c *Controller) HandleDeleteStudent(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Assign student to additional class
+func (c *Controller) HandleAssignStudentToClass(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var payload struct{
+		ClassID string `json:"classId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON payload for assigning class.")
+		return
+	}
+	if payload.ClassID == "" {
+		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Missing Parameter", "classId is required.")
+		return
+	}
+
+	if err := c.Student.AddStudentToClass(id, payload.ClassID); err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Assignment Error", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// Remove student from a class
+func (c *Controller) HandleRemoveStudentFromClass(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	classID := r.PathValue("classId")
+	if classID == "" {
+		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Missing Parameter", "classId is required.")
+		return
+	}
+	if err := c.Student.RemoveStudentFromClass(id, classID); err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Removal Error", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (c *Controller) HandleGetStudentClasses(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	classIDs, err := c.Student.GetStudentClassIDs(id)
+	if err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Read Error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, classIDs)
+}
+
 // Classes Handlers
 func (c *Controller) HandleGetClasses(w http.ResponseWriter, r *http.Request) {
 	classes, err := c.Class.GetAll()

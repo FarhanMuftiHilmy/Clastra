@@ -14,6 +14,9 @@ type StudentRepository interface {
 	Create(student *models.Student) error
 	Update(student *models.Student) error
 	Delete(id string) error
+	AddClass(studentID, classID string) error
+	RemoveClass(studentID, classID string) error
+	GetClassIDs(studentID string) ([]string, error)
 }
 
 type ClassRepository interface {
@@ -64,9 +67,10 @@ func (r *PostgresStudentRepository) GetAll(search, classID string) ([]models.Stu
 	}
 
 	if classID != "" {
-		query += fmt.Sprintf(" AND class_id = $%d", argCount)
-		args = append(args, classID)
-		argCount++
+		// Match students whose primary class_id matches OR who are joined via student_class_joins
+		query += fmt.Sprintf(" AND (class_id = $%d OR id IN (SELECT student_id FROM student_class_joins WHERE class_id = $%d))", argCount, argCount+1)
+		args = append(args, classID, classID)
+		argCount += 2
 	}
 
 	query += " ORDER BY roll_number ASC"
@@ -83,6 +87,11 @@ func (r *PostgresStudentRepository) GetAll(search, classID string) ([]models.Stu
 		if err := rows.Scan(&s.ID, &s.Name, &s.RollNumber, &s.Email, &s.ClassID, &s.Gender); err != nil {
 			return nil, err
 		}
+		ids, err := r.GetClassIDs(s.ID)
+		if err != nil {
+			return nil, err
+		}
+		s.ClassIds = ids
 		students = append(students, s)
 	}
 	return students, nil
@@ -97,6 +106,11 @@ func (r *PostgresStudentRepository) GetByID(id string) (*models.Student, error) 
 	} else if err != nil {
 		return nil, err
 	}
+	ids, err := r.GetClassIDs(s.ID)
+	if err != nil {
+		return nil, err
+	}
+	s.ClassIds = ids
 	return &s, nil
 }
 
@@ -117,6 +131,37 @@ func (r *PostgresStudentRepository) Delete(id string) error {
 	query := "DELETE FROM students WHERE id = $1"
 	_, err := r.DB.Exec(query, id)
 	return err
+}
+
+func (r *PostgresStudentRepository) AddClass(studentID, classID string) error {
+	query := "INSERT INTO student_class_joins (student_id, class_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"
+	_, err := r.DB.Exec(query, studentID, classID)
+	return err
+}
+
+func (r *PostgresStudentRepository) RemoveClass(studentID, classID string) error {
+	query := "DELETE FROM student_class_joins WHERE student_id = $1 AND class_id = $2"
+	_, err := r.DB.Exec(query, studentID, classID)
+	return err
+}
+
+func (r *PostgresStudentRepository) GetClassIDs(studentID string) ([]string, error) {
+	query := "SELECT class_id FROM student_class_joins WHERE student_id = $1"
+	rows, err := r.DB.Query(query, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var cid string
+		if err := rows.Scan(&cid); err != nil {
+			return nil, err
+		}
+		ids = append(ids, cid)
+	}
+	return ids, nil
 }
 
 // Class Implementation

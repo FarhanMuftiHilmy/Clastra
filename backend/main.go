@@ -88,6 +88,9 @@ func main() {
 	mux.Handle("POST /api/v1/students", adminChain(ctrl.HandleCreateStudent))
 	mux.Handle("PUT /api/v1/students/{id}", adminChain(ctrl.HandleUpdateStudent))
 	mux.Handle("DELETE /api/v1/students/{id}", adminChain(ctrl.HandleDeleteStudent))
+	mux.Handle("POST /api/v1/students/{id}/classes", adminChain(ctrl.HandleAssignStudentToClass))
+	mux.Handle("DELETE /api/v1/students/{id}/classes/{classId}", adminChain(ctrl.HandleRemoveStudentFromClass))
+	mux.Handle("GET /api/v1/students/{id}/classes", staffChain(ctrl.HandleGetStudentClasses))
 
 	// Classes Management
 	mux.Handle("GET /api/v1/classes", staffChain(ctrl.HandleGetClasses))

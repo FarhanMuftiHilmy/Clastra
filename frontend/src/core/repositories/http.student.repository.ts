@@ -31,4 +31,16 @@ export class HttpStudentRepository implements IStudentRepository {
   async delete(id: string): Promise<void> {
     return HttpClient.delete(`/students/${id}`);
   }
+
+  async assignToClass(studentId: string, classId: string): Promise<void> {
+    return HttpClient.post(`/students/${studentId}/classes`, { classId });
+  }
+
+  async removeFromClass(studentId: string, classId: string): Promise<void> {
+    return HttpClient.delete(`/students/${studentId}/classes/${classId}`);
+  }
+
+  async getClassIds(studentId: string): Promise<string[]> {
+    return HttpClient.get<string[]>(`/students/${studentId}/classes`);
+  }
 }

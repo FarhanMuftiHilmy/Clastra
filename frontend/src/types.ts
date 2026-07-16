@@ -8,7 +8,8 @@ export interface Student {
   name: string;
   rollNumber: string;
   email: string;
-  classId: string; // Refers to Class.id
+  classId: string; // Primary class reference
+  classIds?: string[]; // All enrolled classes
   gender: 'Male' | 'Female' | 'Other';
 }
 

@@ -95,9 +95,14 @@ export default function App() {
   };
 
   // --- ADMIN ACTIONS: STUDENT MANAGERS ---
-  const handleAddStudent = async (studentData: Omit<Student, 'id'>) => {
+  const handleAddStudent = async (studentData: Omit<Student, 'id'>, classIds?: string[]) => {
     try {
-      await studentService.addStudent(studentData);
+      const created = await studentService.addStudent(studentData);
+      if (classIds && classIds.length > 0) {
+        for (const cid of classIds) {
+          await studentService.assignStudentToClass(created.id, cid);
+        }
+      }
       const updated = await studentService.getAllStudents();
       setStudents(updated);
     } catch (error) {
@@ -126,6 +131,35 @@ export default function App() {
       setAttendanceRecords(updatedAttendance);
     } catch (error) {
       console.error('Delete student error:', error);
+    }
+  };
+
+  const handleAssignStudentToClass = async (studentId: string, classId: string) => {
+    try {
+      await studentService.assignStudentToClass(studentId, classId);
+      const updatedStudents = await studentService.getAllStudents();
+      setStudents(updatedStudents);
+    } catch (error) {
+      console.error('Assign student to class error:', error);
+    }
+  };
+
+  const handleRemoveStudentFromClass = async (studentId: string, classId: string) => {
+    try {
+      await studentService.removeStudentFromClass(studentId, classId);
+      const updatedStudents = await studentService.getAllStudents();
+      setStudents(updatedStudents);
+    } catch (error) {
+      console.error('Remove student from class error:', error);
+    }
+  };
+
+  const handleGetStudentClassIds = async (studentId: string) => {
+    try {
+      return await studentService.getStudentClassIds(studentId);
+    } catch (error) {
+      console.error('Get student class ids error:', error);
+      return [];
     }
   };
 
@@ -322,6 +356,9 @@ export default function App() {
           onAddTeacher={handleAddTeacher}
           onUpdateTeacher={handleUpdateTeacher}
           onDeleteTeacher={handleDeleteTeacher}
+          onAssignStudentToClass={handleAssignStudentToClass}
+          onRemoveStudentFromClass={handleRemoveStudentFromClass}
+          onGetStudentClassIds={handleGetStudentClassIds}
           onAddClass={handleAddClass}
           onUpdateClass={handleUpdateClass}
           onDeleteClass={handleDeleteClass}

@@ -45,7 +45,7 @@ export default function TeacherPortal({
 
   // Get students of the currently active/selected class
   const activeClassStudents = selectedClass 
-    ? students.filter(s => s.classId === selectedClass.id) 
+    ? students.filter(s => s.classId === selectedClass.id || s.classIds?.includes(selectedClass.id)) 
     : [];
 
   // Handle Opening/Selecting a class to mark attendance
@@ -59,7 +59,7 @@ export default function TeacherPortal({
     );
 
     const initialRoster: Record<string, AttendanceStatus> = {};
-    const classStudents = students.filter(s => s.classId === cls.id);
+    const classStudents = students.filter(s => s.classId === cls.id || s.classIds?.includes(cls.id));
 
     classStudents.forEach(student => {
       if (existingRecord) {
@@ -167,7 +167,7 @@ export default function TeacherPortal({
               {/* Class Cards List */}
               <div className="space-y-3">
                 {assignedClasses.map(cls => {
-                  const studentCount = students.filter(s => s.classId === cls.id).length;
+                  const studentCount = students.filter(s => s.classId === cls.id || s.classIds?.includes(cls.id)).length;
                   // check if already submitted today
                   const isSubmittedToday = attendanceRecords.some(
                     r => r.classId === cls.id && r.date === new Date().toISOString().split('T')[0]

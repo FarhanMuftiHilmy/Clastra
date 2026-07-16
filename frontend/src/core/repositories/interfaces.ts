@@ -11,6 +11,9 @@ export interface IStudentRepository {
   create(student: Omit<Student, 'id'>): Promise<Student>;
   update(student: Student): Promise<Student>;
   delete(id: string): Promise<void>;
+  assignToClass(studentId: string, classId: string): Promise<void>;
+  removeFromClass(studentId: string, classId: string): Promise<void>;
+  getClassIds(studentId: string): Promise<string[]>;
 }
 
 export interface IClassRepository {

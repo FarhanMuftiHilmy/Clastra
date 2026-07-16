@@ -32,4 +32,16 @@ export class StudentService {
     await this.studentRepo.delete(id);
     await this.attendanceRepo.removeStudentFromRecords(id);
   }
+
+  async assignStudentToClass(studentId: string, classId: string): Promise<void> {
+    return this.studentRepo.assignToClass(studentId, classId);
+  }
+
+  async removeStudentFromClass(studentId: string, classId: string): Promise<void> {
+    return this.studentRepo.removeFromClass(studentId, classId);
+  }
+
+  async getStudentClassIds(studentId: string): Promise<string[]> {
+    return this.studentRepo.getClassIds(studentId);
+  }
 }

@@ -22,9 +22,12 @@ interface AdminDashboardProps {
   classes: Class[];
   teachers: Teacher[];
   attendanceRecords: AttendanceRecord[];
-  onAddStudent: (student: Omit<Student, 'id'>) => void;
-  onUpdateStudent: (student: Student) => void;
-  onDeleteStudent: (id: string) => void;
+  onAddStudent: (student: Omit<Student, 'id'>, classIds?: string[]) => Promise<void>;
+  onUpdateStudent: (student: Student) => Promise<void>;
+  onDeleteStudent: (id: string) => Promise<void>;
+  onAssignStudentToClass: (studentId: string, classId: string) => Promise<void>;
+  onRemoveStudentFromClass: (studentId: string, classId: string) => Promise<void>;
+  onGetStudentClassIds: (studentId: string) => Promise<string[]>;
   onAddTeacher: (teacher: Omit<Teacher, 'id'>) => void;
   onUpdateTeacher: (teacher: Teacher) => void;
   onDeleteTeacher: (id: string) => void;
@@ -48,6 +51,9 @@ export default function AdminDashboard({
   onAddTeacher,
   onUpdateTeacher,
   onDeleteTeacher,
+  onAssignStudentToClass,
+  onRemoveStudentFromClass,
+  onGetStudentClassIds,
   onAddClass,
   onUpdateClass,
   onDeleteClass,
@@ -85,6 +91,8 @@ export default function AdminDashboard({
     gender: 'Male' as 'Male' | 'Female' | 'Other',
   });
   const [studentFormError, setStudentFormError] = useState<string | null>(null);
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+  const [prevClassIds, setPrevClassIds] = useState<string[]>([]);
 
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
@@ -169,7 +177,7 @@ export default function AdminDashboard({
       });
 
       const rate = total > 0 ? Math.round((present / total) * 100) : 0;
-      const clsStudentsCount = students.filter(s => s.classId === cls.id).length;
+      const clsStudentsCount = students.filter(s => s.classId === cls.id || s.classIds?.includes(cls.id)).length;
 
       return {
         className: cls.name,
@@ -181,9 +189,8 @@ export default function AdminDashboard({
 
   // Attendance over time (line chart)
   const attendanceOverTime = useMemo(() => {
-    // Unique dates
     const uniqueDates = Array.from(new Set(attendanceRecords.map(r => r.date))).sort();
-    
+
     return uniqueDates.map(date => {
       const dateRecords = attendanceRecords.filter(r => r.date === date);
       let present = 0;
@@ -197,8 +204,6 @@ export default function AdminDashboard({
       });
 
       const rate = total > 0 ? Math.round((present / total) * 100) : 0;
-      
-      // Format date beautifully
       const parsedDate = new Date(date);
       const formattedDate = parsedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
@@ -219,7 +224,7 @@ export default function AdminDashboard({
         student.rollNumber.toLowerCase().includes(studentSearch.toLowerCase()) ||
         student.email.toLowerCase().includes(studentSearch.toLowerCase());
       
-      const matchesClass = studentClassFilter === 'all' || student.classId === studentClassFilter;
+      const matchesClass = studentClassFilter === 'all' || student.classId === studentClassFilter || student.classIds?.includes(studentClassFilter);
 
       return matchesSearch && matchesClass;
     });
@@ -304,7 +309,7 @@ export default function AdminDashboard({
   // --- ACTIONS HANDLERS ---
 
   // Handle student create / update
-  const handleStudentFormSubmit = (e: React.FormEvent) => {
+  const handleStudentFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStudentFormError(null);
 
@@ -312,7 +317,7 @@ export default function AdminDashboard({
     if (!studentForm.name.trim()) return setStudentFormError('Full Name is required');
     if (!studentForm.rollNumber.trim()) return setStudentFormError('Roll Number/Student ID is required');
     if (!studentForm.email.trim() || !studentForm.email.includes('@')) return setStudentFormError('Enter a valid email address');
-    if (!studentForm.classId) return setStudentFormError('Please select a class');
+    if (!editingStudent && selectedClassIds.length === 0) return setStudentFormError('Please select at least one class');
 
     // Roll number uniqueness validation (excluding current student being edited)
     const rollDup = students.some(s => 
@@ -322,20 +327,34 @@ export default function AdminDashboard({
     if (rollDup) return setStudentFormError('This Roll Number is already registered');
 
     if (editingStudent) {
-      onUpdateStudent({
+      // set primary class to first selected
+      const primaryClass = selectedClassIds[0] || '';
+      await onUpdateStudent({
         ...editingStudent,
         ...studentForm,
+        classId: primaryClass,
       });
+
+      // reconcile class assignments
+      const toAdd = selectedClassIds.filter(id => !prevClassIds.includes(id));
+      const toRemove = prevClassIds.filter(id => !selectedClassIds.includes(id));
+      await Promise.all([
+        ...toAdd.map(cid => onAssignStudentToClass(editingStudent.id, cid)),
+        ...toRemove.map(cid => onRemoveStudentFromClass(editingStudent.id, cid)),
+      ]);
     } else {
-      onAddStudent(studentForm);
+      const primaryClass = selectedClassIds[0] || '';
+      await onAddStudent({ ...studentForm, classId: primaryClass }, selectedClassIds);
     }
 
     setIsStudentModalOpen(false);
     setEditingStudent(null);
     setStudentForm({ name: '', rollNumber: '', email: '', classId: '', gender: 'Male' });
+    setSelectedClassIds([]);
+    setPrevClassIds([]);
   };
 
-  const handleOpenEditStudent = (student: Student) => {
+  const handleOpenEditStudent = async (student: Student) => {
     setEditingStudent(student);
     setStudentForm({
       name: student.name,
@@ -345,6 +364,16 @@ export default function AdminDashboard({
       gender: student.gender,
     });
     setStudentFormError(null);
+    // load current class joins and include the primary class assignment
+    try {
+      const classIds = await onGetStudentClassIds(student.id);
+      const currentClassIds = Array.from(new Set([student.classId, ...(classIds || [])].filter(Boolean)));
+      setSelectedClassIds(currentClassIds);
+      setPrevClassIds(currentClassIds);
+    } catch (e) {
+      setSelectedClassIds(student.classId ? [student.classId] : []);
+      setPrevClassIds(student.classId ? [student.classId] : []);
+    }
     setIsStudentModalOpen(true);
   };
 
@@ -785,7 +814,8 @@ export default function AdminDashboard({
                       id="add-student-btn"
                       onClick={() => {
                         setEditingStudent(null);
-                        setStudentForm({ name: '', rollNumber: '', email: '', classId: classes[0]?.id || '', gender: 'Male' });
+                        setStudentForm({ name: '', rollNumber: '', email: '', classId: '', gender: 'Male' });
+                        setSelectedClassIds(classes.length > 0 && classes[0]?.id ? [classes[0].id] : []);
                         setStudentFormError(null);
                         setIsStudentModalOpen(true);
                       }}
@@ -847,16 +877,27 @@ export default function AdminDashboard({
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
                           {paginatedStudents.map(student => {
-                            const studentClass = classes.find(c => c.id === student.classId);
+                            const allClassIds = Array.from(new Set([student.classId, ...(student.classIds || [])].filter(Boolean)));
+                            const studentClasses = classes.filter(c => allClassIds.includes(c.id));
                             return (
                               <tr key={student.id} className="hover:bg-slate-50/55 transition-colors">
                                 <td className="py-3.5 px-6 font-semibold text-slate-900">{student.name}</td>
                                 <td className="py-3.5 px-6 font-mono text-slate-500">{student.rollNumber}</td>
                                 <td className="py-3.5 px-6 text-slate-500">{student.email}</td>
                                 <td className="py-3.5 px-6">
-                                  <span className="py-1 px-2.5 bg-indigo-50 text-indigo-700 rounded-lg text-[11px] font-bold">
-                                    {studentClass ? studentClass.name : 'Unassigned'}
-                                  </span>
+                                  {studentClasses.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      {studentClasses.map(cls => (
+                                        <span key={cls.id} className="py-1 px-2.5 bg-indigo-50 text-indigo-700 rounded-lg text-[11px] font-bold">
+                                          {cls.name}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="py-1 px-2.5 bg-slate-100 text-slate-500 rounded-lg text-[11px] font-bold">
+                                      Unassigned
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="py-3.5 px-6 text-slate-500">{student.gender}</td>
                                 <td className="py-3.5 px-6 text-right space-x-1.5 whitespace-nowrap">
@@ -992,7 +1033,7 @@ export default function AdminDashboard({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {filteredClasses.map(cls => {
                       const teacher = teachers.find(t => t.id === cls.teacherId);
-                      const classStudents = students.filter(s => s.classId === cls.id);
+                      const classStudents = students.filter(s => s.classId === cls.id || s.classIds?.includes(cls.id));
 
                       return (
                         <div key={cls.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5 hover:shadow-md transition-shadow">
@@ -1497,17 +1538,22 @@ export default function AdminDashboard({
 
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Class Cohort Assignment</label>
-                <select
-                  id="student-form-class"
-                  value={studentForm.classId}
-                  onChange={(e) => setStudentForm({ ...studentForm, classId: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="">-- Choose Class --</option>
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-auto border border-slate-100 p-2 rounded-md">
                   {classes.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.room})</option>
+                    <label key={c.id} className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={selectedClassIds.includes(c.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedClassIds(prev => [...prev, c.id]);
+                          else setSelectedClassIds(prev => prev.filter(id => id !== c.id));
+                        }}
+                        className="w-3.5 h-3.5"
+                      />
+                      <span>{c.name} ({c.room})</span>
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
 
               <div className="pt-3 flex justify-end gap-2.5">

@@ -111,6 +111,36 @@ func (s *StudentService) Delete(id string) error {
 	return s.Repo.Delete(id)
 }
 
+func (s *StudentService) AddStudentToClass(studentID, classID string) error {
+	// Ensure student exists
+	st, err := s.Repo.GetByID(studentID)
+	if err != nil {
+		return err
+	}
+	if st == nil {
+		return fmt.Errorf("student not found")
+	}
+	// Ensure class exists - repository may be nil here but caller usually has class repo
+	// Use attendance repo / other checks omitted for simplicity
+	return s.Repo.AddClass(studentID, classID)
+}
+
+func (s *StudentService) RemoveStudentFromClass(studentID, classID string) error {
+	// Ensure student exists
+	st, err := s.Repo.GetByID(studentID)
+	if err != nil {
+		return err
+	}
+	if st == nil {
+		return fmt.Errorf("student not found")
+	}
+	return s.Repo.RemoveClass(studentID, classID)
+}
+
+func (s *StudentService) GetStudentClassIDs(studentID string) ([]string, error) {
+	return s.Repo.GetClassIDs(studentID)
+}
+
 func (s *StudentService) validateStudent(student *models.Student) []models.ErrorDetail {
 	var errs []models.ErrorDetail
 	if len(student.Name) == 0 {

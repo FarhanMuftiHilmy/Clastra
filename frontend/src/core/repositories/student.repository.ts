@@ -8,6 +8,7 @@ import { IStudentRepository } from './interfaces';
 import { INITIAL_STUDENTS } from '../../data';
 
 const STORAGE_KEY = 'sms_students';
+const JOINS_KEY = 'sms_student_class_joins';
 
 export class InMemoryStudentRepository implements IStudentRepository {
   private async load(): Promise<Student[]> {
@@ -24,12 +25,23 @@ export class InMemoryStudentRepository implements IStudentRepository {
   }
 
   async getAll(): Promise<Student[]> {
-    return this.load();
+    const list = await this.load();
+    const joins = await this.loadJoins();
+    return list.map(student => ({
+      ...student,
+      classIds: joins[student.id] || [],
+    }));
   }
 
   async getById(id: string): Promise<Student | null> {
     const list = await this.load();
-    return list.find(s => s.id === id) || null;
+    const student = list.find(s => s.id === id) || null;
+    if (!student) return null;
+    const joins = await this.loadJoins();
+    return {
+      ...student,
+      classIds: joins[student.id] || [],
+    };
   }
 
   async create(studentData: Omit<Student, 'id'>): Promise<Student> {
@@ -58,5 +70,38 @@ export class InMemoryStudentRepository implements IStudentRepository {
     const list = await this.load();
     const filtered = list.filter(s => s.id !== id);
     this.saveToStorage(filtered);
+  }
+
+  private async loadJoins(): Promise<Record<string, string[]>> {
+    const stored = localStorage.getItem(JOINS_KEY);
+    if (stored) return JSON.parse(stored);
+    return {};
+  }
+
+  private async saveJoins(joins: Record<string, string[]>) {
+    localStorage.setItem(JOINS_KEY, JSON.stringify(joins));
+  }
+
+  async assignToClass(studentId: string, classId: string): Promise<void> {
+    const joins = await this.loadJoins();
+    const list = joins[studentId] || [];
+    if (!list.includes(classId)) {
+      list.push(classId);
+      joins[studentId] = list;
+      await this.saveJoins(joins);
+    }
+  }
+
+  async removeFromClass(studentId: string, classId: string): Promise<void> {
+    const joins = await this.loadJoins();
+    const list = joins[studentId] || [];
+    const filtered = list.filter(c => c !== classId);
+    joins[studentId] = filtered;
+    await this.saveJoins(joins);
+  }
+
+  async getClassIds(studentId: string): Promise<string[]> {
+    const joins = await this.loadJoins();
+    return joins[studentId] || [];
   }
 }
