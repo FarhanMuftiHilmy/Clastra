@@ -129,6 +129,11 @@ export default function TeacherPortal({
                 <span className="text-[10px] uppercase font-black text-indigo-600 tracking-wider">Springfield Academy</span>
                 <h3 className="text-lg font-black text-slate-800 leading-tight">Hi, {teacher.name.split(' ')[0]}! 👋</h3>
                 <p className="text-[11px] text-slate-500 font-medium">Instructor of {teacher.subject}</p>
+                {import.meta.env.MODE !== 'production' && (
+                  <div className="text-[10px] text-slate-400 mt-1">
+                    Debug: id={teacher.id} email={teacher.email} assignedClasses={assignedClasses.length}
+                  </div>
+                )}
               </div>
               <button
                 type="button"

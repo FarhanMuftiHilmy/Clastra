@@ -10,7 +10,7 @@ import AuthScreen from './components/AuthScreen';
 import ActivationScreen from './components/ActivationScreen';
 import AdminDashboard from './components/AdminDashboard';
 import TeacherPortal from './components/TeacherPortal';
-import DeviceFrame from './components/DeviceFrame';
+// DeviceFrame removed for responsive web layout
 import { Sparkles, ArrowLeftRight, UserCheck, Shield, BookOpen } from 'lucide-react';
 import { studentService, classService, teacherService, attendanceService, adminService, authService } from './core/container';
 
@@ -30,14 +30,19 @@ export default function App() {
   // --- PERSISTENCE LOADER ---
   const loadData = async () => {
     try {
-      const [activeTeachers, activeClasses, activeStudents, activeAdmins, activeAttendance, activeUser] = await Promise.all([
+      const activeUser = await authService.getCurrentUser();
+
+      const [activeTeachers, activeClasses, activeStudents, activeAttendance] = await Promise.all([
         teacherService.getAllTeachers(),
         classService.getAllClasses(),
         studentService.getAllStudents(),
-        adminService?.getAllAdmins(),
         attendanceService.getAllRecords(),
-        authService.getCurrentUser(),
       ]);
+
+      const activeAdmins =
+        activeUser?.role === 'admin' && adminService
+          ? await adminService.getAllAdmins()
+          : [];
 
       const normalizedTeachers = Array.isArray(activeTeachers) ? activeTeachers : [];
       const normalizedClasses = Array.isArray(activeClasses) ? activeClasses : [];
@@ -115,7 +120,7 @@ export default function App() {
   };
 
   // --- ADMIN ACTIONS: STUDENT MANAGERS ---
-  const handleAddStudent = async (studentData: Omit<Student, 'id'>, classIds?: string[]) => {
+  const handleAddStudent = async (studentData: Omit<Student, 'id'>, classIds?: string[]): Promise<void> => {
     try {
       const created = await studentService.addStudent(studentData);
       if (classIds && classIds.length > 0) {
@@ -127,6 +132,7 @@ export default function App() {
       setStudents(updated);
     } catch (error) {
       console.error('Add student error:', error);
+      throw error;
     }
   };
 
@@ -137,6 +143,7 @@ export default function App() {
       setStudents(updated);
     } catch (error) {
       console.error('Update student error:', error);
+      throw error;
     }
   };
 
@@ -161,6 +168,7 @@ export default function App() {
       setStudents(updatedStudents);
     } catch (error) {
       console.error('Assign student to class error:', error);
+      throw error;
     }
   };
 
@@ -171,6 +179,7 @@ export default function App() {
       setStudents(updatedStudents);
     } catch (error) {
       console.error('Remove student from class error:', error);
+      throw error;
     }
   };
 
@@ -427,30 +436,21 @@ export default function App() {
         />
       ) : (
         /* Teacher Mobile Portal embedded in a realistic device layout on a clean desk canvas */
-        <div id="teacher-portal-workspace" className="min-h-screen bg-slate-50 flex flex-col justify-center items-center py-10 px-4 relative overflow-hidden">
-          {/* Geometric background lines/grid */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-40" />
-
-          <div className="mb-6 text-center text-slate-800 z-10 max-w-sm">
-            <div className="inline-flex items-center gap-1.5 py-1 px-3 bg-indigo-50 border border-indigo-100 rounded-full text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-2.5">
-              <BookOpen className="w-3.5 h-3.5" />
-              Interactive Simulation
-            </div>
-            <h2 className="text-xl font-extrabold tracking-tight text-slate-900">Teacher Roll Call Terminal</h2>
-            <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">This viewport simulates a live Flutter mobile application on a school iPad/Phone device.</p>
-          </div>
-
-          <div className="z-10 w-full max-w-md">
-            <DeviceFrame>
-              <TeacherPortal
-                teacher={teachers.find(t => t.id === currentUser.id) || { id: currentUser.id, name: currentUser.name, email: currentUser.email, subject: 'General' }}
-                classes={classes}
-                students={students}
-                attendanceRecords={attendanceRecords}
-                onSubmitAttendance={handleSubmitAttendance}
-                onLogout={handleLogout}
-              />
-            </DeviceFrame>
+        <div id="teacher-portal-workspace" className="min-h-screen bg-slate-50 flex flex-col items-center py-10 px-4">
+          <div className="w-full max-w-4xl">
+            <TeacherPortal
+              teacher={
+                teachers.find(t =>
+                  t.id === currentUser.id ||
+                  (t.email && currentUser.email && t.email.toLowerCase() === currentUser.email.toLowerCase())
+                ) || { id: currentUser.id, name: currentUser.name, email: currentUser.email, subject: 'General' }
+              }
+              classes={classes}
+              students={students}
+              attendanceRecords={attendanceRecords}
+              onSubmitAttendance={handleSubmitAttendance}
+              onLogout={handleLogout}
+            />
           </div>
         </div>
       )}

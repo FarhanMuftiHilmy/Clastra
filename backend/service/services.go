@@ -112,6 +112,7 @@ func (s *StudentService) Delete(id string) error {
 }
 
 func (s *StudentService) AddStudentToClass(studentID, classID string) error {
+	fmt.Println("[INFO] Adding student", studentID, "to class", classID)
 	// Ensure student exists
 	st, err := s.Repo.GetByID(studentID)
 	if err != nil {

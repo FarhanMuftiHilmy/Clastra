@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"scholasync/backend/models"
 	"scholasync/backend/service"
+	"github.com/gorilla/mux"
 )
 
 type Controller struct {
@@ -112,7 +113,7 @@ func (c *Controller) HandleGetStudents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) HandleGetStudentByID(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := mux.Vars(r)["id"]
 	student, err := c.Student.GetByID(id)
 	if err != nil {
 		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Database Read Error", err.Error())
@@ -152,7 +153,7 @@ func (c *Controller) HandleCreateStudent(w http.ResponseWriter, r *http.Request)
 }
 
 func (c *Controller) HandleUpdateStudent(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := mux.Vars(r)["id"]
 	var s models.Student
 	if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
 		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON student modification payload.")
@@ -174,7 +175,7 @@ func (c *Controller) HandleUpdateStudent(w http.ResponseWriter, r *http.Request)
 }
 
 func (c *Controller) HandleDeleteStudent(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := mux.Vars(r)["id"]
 	err := c.Student.Delete(id)
 	if err != nil {
 		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Deletion Error", err.Error())
@@ -185,8 +186,8 @@ func (c *Controller) HandleDeleteStudent(w http.ResponseWriter, r *http.Request)
 
 // Assign student to additional class
 func (c *Controller) HandleAssignStudentToClass(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	var payload struct{
+	id := mux.Vars(r)["id"]
+	var payload struct {
 		ClassID string `json:"classId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -207,8 +208,8 @@ func (c *Controller) HandleAssignStudentToClass(w http.ResponseWriter, r *http.R
 
 // Remove student from a class
 func (c *Controller) HandleRemoveStudentFromClass(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	classID := r.PathValue("classId")
+	id := mux.Vars(r)["id"]
+	classID := mux.Vars(r)["classId"]
 	if classID == "" {
 		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Missing Parameter", "classId is required.")
 		return
@@ -221,7 +222,7 @@ func (c *Controller) HandleRemoveStudentFromClass(w http.ResponseWriter, r *http
 }
 
 func (c *Controller) HandleGetStudentClasses(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := mux.Vars(r)["id"]
 	classIDs, err := c.Student.GetStudentClassIDs(id)
 	if err != nil {
 		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Read Error", err.Error())
@@ -241,7 +242,7 @@ func (c *Controller) HandleGetClasses(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) HandleGetClassByID(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := mux.Vars(r)["id"]
 	classData, err := c.Class.GetByID(id)
 	if err != nil {
 		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Database Read Error", err.Error())
@@ -281,7 +282,7 @@ func (c *Controller) HandleCreateClass(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) HandleUpdateClass(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := mux.Vars(r)["id"]
 	var cl models.Class
 	if err := json.NewDecoder(r.Body).Decode(&cl); err != nil {
 		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON class modification payload.")
@@ -303,7 +304,7 @@ func (c *Controller) HandleUpdateClass(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) HandleDeleteClass(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := mux.Vars(r)["id"]
 	err := c.Class.Delete(id)
 	if err != nil {
 		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Deletion Error", err.Error())
@@ -366,7 +367,7 @@ func (c *Controller) HandleActivateTeacher(w http.ResponseWriter, r *http.Reques
 }
 
 func (c *Controller) HandleUpdateTeacher(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := mux.Vars(r)["id"]
 	var t models.Teacher
 	if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
 		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON teacher modification payload.")
@@ -388,7 +389,7 @@ func (c *Controller) HandleUpdateTeacher(w http.ResponseWriter, r *http.Request)
 }
 
 func (c *Controller) HandleDeleteTeacher(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := mux.Vars(r)["id"]
 	err := c.Teacher.Delete(id)
 	if err != nil {
 		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Deletion Error", err.Error())
@@ -408,7 +409,7 @@ func (c *Controller) HandleGetAdmins(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) HandleGetAdminByID(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := mux.Vars(r)["id"]
 	admin, err := c.Admin.GetByID(id)
 	if err != nil {
 		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Database Read Error", err.Error())
@@ -448,7 +449,7 @@ func (c *Controller) HandleCreateAdmin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) HandleUpdateAdmin(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := mux.Vars(r)["id"]
 	var a models.Admin
 	if err := json.NewDecoder(r.Body).Decode(&a); err != nil {
 		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON admin modification payload.")
@@ -470,7 +471,7 @@ func (c *Controller) HandleUpdateAdmin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *Controller) HandleDeleteAdmin(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+	id := mux.Vars(r)["id"]
 	err := c.Admin.Delete(id)
 	if err != nil {
 		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Deletion Error", err.Error())

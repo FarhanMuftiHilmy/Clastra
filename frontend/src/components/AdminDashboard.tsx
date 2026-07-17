@@ -340,32 +340,36 @@ export default function AdminDashboard({
     );
     if (rollDup) return setStudentFormError('This Roll Number is already registered');
 
-    if (editingStudent) {
-      // set primary class to first selected
-      const primaryClass = selectedClassIds[0] || '';
-      await onUpdateStudent({
-        ...editingStudent,
-        ...studentForm,
-        classId: primaryClass,
-      });
+    try {
+      if (editingStudent) {
+        // set primary class to first selected
+        const primaryClass = selectedClassIds[0] || '';
+        await onUpdateStudent({
+          ...editingStudent,
+          ...studentForm,
+          classId: primaryClass,
+        });
 
-      // reconcile class assignments
-      const toAdd = selectedClassIds.filter(id => !prevClassIds.includes(id));
-      const toRemove = prevClassIds.filter(id => !selectedClassIds.includes(id));
-      await Promise.all([
-        ...toAdd.map(cid => onAssignStudentToClass(editingStudent.id, cid)),
-        ...toRemove.map(cid => onRemoveStudentFromClass(editingStudent.id, cid)),
-      ]);
-    } else {
-      const primaryClass = selectedClassIds[0] || '';
-      await onAddStudent({ ...studentForm, classId: primaryClass }, selectedClassIds);
+        // reconcile class assignments
+        const toAdd = selectedClassIds.filter(id => !prevClassIds.includes(id));
+        const toRemove = prevClassIds.filter(id => !selectedClassIds.includes(id));
+        await Promise.all([
+          ...toAdd.map(cid => onAssignStudentToClass(editingStudent.id, cid)),
+          ...toRemove.map(cid => onRemoveStudentFromClass(editingStudent.id, cid)),
+        ]);
+      } else {
+        const primaryClass = selectedClassIds[0] || '';
+        await onAddStudent({ ...studentForm, classId: primaryClass }, selectedClassIds);
+      }
+
+      setIsStudentModalOpen(false);
+      setEditingStudent(null);
+      setStudentForm({ name: '', rollNumber: '', email: '', classId: '', gender: 'Male' });
+      setSelectedClassIds([]);
+      setPrevClassIds([]);
+    } catch (error: any) {
+      setStudentFormError(error?.message || 'Failed to save student assignment.');
     }
-
-    setIsStudentModalOpen(false);
-    setEditingStudent(null);
-    setStudentForm({ name: '', rollNumber: '', email: '', classId: '', gender: 'Male' });
-    setSelectedClassIds([]);
-    setPrevClassIds([]);
   };
 
   const handleOpenEditStudent = async (student: Student) => {
