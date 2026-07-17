@@ -13,6 +13,7 @@ type Controller struct {
 	Class      *service.ClassService
 	Teacher    *service.TeacherService
 	Attendance *service.AttendanceService
+	Admin      *service.AdminService
 }
 
 func NewController(
@@ -21,6 +22,7 @@ func NewController(
 	class *service.ClassService,
 	teacher *service.TeacherService,
 	attendance *service.AttendanceService,
+	admin *service.AdminService,
 ) *Controller {
 	return &Controller{
 		Auth:       auth,
@@ -28,6 +30,7 @@ func NewController(
 		Class:      class,
 		Teacher:    teacher,
 		Attendance: attendance,
+		Admin:      admin,
 	}
 }
 
@@ -392,6 +395,111 @@ func (c *Controller) HandleDeleteTeacher(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Admin handlers
+func (c *Controller) HandleGetAdmins(w http.ResponseWriter, r *http.Request) {
+	admins, err := c.Admin.GetAll()
+	if err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Database Read Error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, admins)
+}
+
+func (c *Controller) HandleGetAdminByID(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	admin, err := c.Admin.GetByID(id)
+	if err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Database Read Error", err.Error())
+		return
+	}
+	if admin == nil {
+		writeJSON(w, http.StatusNotFound, models.ProblemDetails{
+			Type:     "https://scholasync.edu/errors/not-found",
+			Title:    "Resource Not Found",
+			Status:   http.StatusNotFound,
+			Detail:   "No admin found with the requested identifier.",
+			Instance: r.URL.Path,
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, admin)
+}
+
+func (c *Controller) HandleCreateAdmin(w http.ResponseWriter, r *http.Request) {
+	var a models.Admin
+	if err := json.NewDecoder(r.Body).Decode(&a); err != nil {
+		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON admin creation payload.")
+		return
+	}
+
+	problem, err := c.Admin.Create(&a)
+	if err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Creation Error", err.Error())
+		return
+	}
+	if problem != nil {
+		writeJSON(w, problem.Status, problem)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, a)
+}
+
+func (c *Controller) HandleUpdateAdmin(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var a models.Admin
+	if err := json.NewDecoder(r.Body).Decode(&a); err != nil {
+		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON admin modification payload.")
+		return
+	}
+	a.ID = id
+
+	problem, err := c.Admin.Update(&a)
+	if err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Modification Error", err.Error())
+		return
+	}
+	if problem != nil {
+		writeJSON(w, problem.Status, problem)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, a)
+}
+
+func (c *Controller) HandleDeleteAdmin(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	err := c.Admin.Delete(id)
+	if err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Deletion Error", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (c *Controller) HandleActivateAdmin(w http.ResponseWriter, r *http.Request) {
+	var req models.TeacherActivationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeProblem(w, r.URL.Path, http.StatusBadRequest, "Malformed Payload", "Failed to deserialize JSON admin activation payload.")
+		return
+	}
+
+	admin, problem, err := c.Admin.Activate(req.Token, req.Password)
+	if err != nil {
+		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Activation Error", err.Error())
+		return
+	}
+	if problem != nil {
+		writeJSON(w, problem.Status, problem)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "Admin account activated successfully.",
+		"email":   admin.Email,
+	})
 }
 
 // Attendance handlers

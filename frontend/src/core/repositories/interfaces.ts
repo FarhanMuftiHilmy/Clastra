@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Student, Class, Teacher, AttendanceRecord } from '../../types';
+import { Student, Class, Teacher, AttendanceRecord, Admin } from '../../types';
 
 export interface IStudentRepository {
   getAll(): Promise<Student[]>;
@@ -38,4 +38,12 @@ export interface IAttendanceRepository {
   save(record: AttendanceRecord): Promise<AttendanceRecord>;
   deleteByClassId(classId: string): Promise<void>;
   removeStudentFromRecords(studentId: string): Promise<void>;
+}
+
+export interface IAdminRepository {
+  getAll(): Promise<Admin[]>;
+  getById(id: string): Promise<Admin | null>;
+  create(admin: Omit<Admin, 'id' | 'createdAt'>): Promise<Admin>;
+  update(admin: Admin): Promise<Admin>;
+  delete(id: string): Promise<void>;
 }

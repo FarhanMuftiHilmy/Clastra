@@ -10,11 +10,12 @@ const (
 )
 
 type CurrentUser struct {
-	Role  UserRole `json:"role"`
-	ID    string   `json:"id"`
-	Name  string   `json:"name"`
-	Email string   `json:"email"`
-	Token string   `json:"token,omitempty"`
+	Role      UserRole `json:"role"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Email     string   `json:"email"`
+	AdminRole string   `json:"adminRole,omitempty"`
+	Token     string   `json:"token,omitempty"`
 }
 
 type Student struct {
@@ -43,6 +44,18 @@ type Teacher struct {
 	PasswordHash    string `json:"-"`
 	ActivationToken string `json:"-"`
 	IsActive        bool   `json:"isActive"`
+}
+
+type Admin struct {
+	ID              string     `json:"id"`
+	Name            string     `json:"name"`
+	Email           string     `json:"email"`
+	Role            string     `json:"role"` // "super" or "limited"
+	PasswordHash    string     `json:"-"`
+	ActivationToken string     `json:"-"`
+	IsActive        bool       `json:"isActive"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	LastLogin       *time.Time `json:"lastLogin,omitempty"`
 }
 
 type TeacherActivationRequest struct {

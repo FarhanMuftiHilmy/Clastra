@@ -11,9 +11,11 @@ interface ActivationScreenProps {
   activationToken: string;
   onActivate: (token: string, password: string) => Promise<string>;
   onCancel: () => void;
+  title?: string;
+  description?: string;
 }
 
-export default function ActivationScreen({ activationToken, onActivate, onCancel }: ActivationScreenProps) {
+export default function ActivationScreen({ activationToken, onActivate, onCancel, title = 'Activate Your Teacher Account', description = 'Set a secure password to finish account activation.' }: ActivationScreenProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -66,8 +68,8 @@ export default function ActivationScreen({ activationToken, onActivate, onCancel
           <div className="inline-flex items-center justify-center p-3.5 bg-indigo-600 rounded-xl text-white shadow-sm mb-4">
             <Shield className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Activate Your Teacher Account</h1>
-          <p className="text-xs text-slate-500 mt-1.5 font-medium">Set a secure password to finish account activation.</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{title}</h1>
+          <p className="text-xs text-slate-500 mt-1.5 font-medium">{description}</p>
         </div>
 
         {error && (

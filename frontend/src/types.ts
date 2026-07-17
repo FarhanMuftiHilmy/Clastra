@@ -28,6 +28,16 @@ export interface Teacher {
   subject: string;
 }
 
+export interface Admin {
+  id: string;
+  name: string;
+  email: string;
+  role: 'super' | 'limited';
+  isActive: boolean;
+  createdAt: string;
+  lastLogin?: string | null;
+}
+
 export type AttendanceStatus = 'Present' | 'Sick' | 'Excused' | 'Absent';
 
 export interface StudentAttendance {
@@ -48,6 +58,7 @@ export type UserRole = 'admin' | 'teacher';
 
 export interface CurrentUser {
   role: UserRole;
+  adminRole?: 'super' | 'limited';
   id: string; // admin or teacher ID
   name: string;
   email: string;

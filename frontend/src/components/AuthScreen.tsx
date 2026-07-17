@@ -15,24 +15,17 @@ interface AuthScreenProps {
 
 export default function AuthScreen({ teachers, onLoginSuccess }: AuthScreenProps) {
   const [selectedRole, setSelectedRole] = useState<UserRole>('admin');
-  const [email, setEmail] = useState('admin@school.edu');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRoleChange = (role: UserRole) => {
     setSelectedRole(role);
     setError(null);
-    if (role === 'admin') {
-      setEmail('admin@school.edu');
-    } else {
-      // Pre-fill with the first teacher's email
-      if (teachers.length > 0) {
-        setEmail(teachers[0].email);
-      } else {
-        setEmail('teacher@school.edu');
-      }
-    }
+    // Do not prefill email or password for any role — require user input
+    setEmail('');
+    setPassword('');
   };
 
   const handleQuickSelectTeacher = (teacherEmail: string) => {
@@ -190,44 +183,6 @@ export default function AuthScreen({ teachers, onLoginSuccess }: AuthScreenProps
             )}
           </button>
         </form>
-
-        {/* Quick Credentials / Seeding Info */}
-        <div className="mt-8 pt-6 border-t border-slate-100">
-          <div className="flex items-center gap-1.5 text-xs text-indigo-600 font-bold mb-3">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Developer Sandbox Accounts</span>
-          </div>
-
-          {selectedRole === 'admin' ? (
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200/60 text-xs space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Admin Email:</span>
-                <span className="font-mono font-semibold text-slate-800">admin@school.edu</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Password:</span>
-                <span className="font-mono font-semibold text-slate-800">admin123</span>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-[11px] text-slate-500 font-medium">Select an active school teacher below to instantly sign in:</p>
-              <div className="grid grid-cols-2 gap-2">
-                {teachers.map(teacher => (
-                  <button
-                    key={teacher.id}
-                    type="button"
-                    onClick={() => handleQuickSelectTeacher(teacher.email)}
-                    className="p-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg text-left transition-colors text-xs overflow-hidden text-ellipsis cursor-pointer"
-                  >
-                    <p className="font-bold text-slate-800 truncate">{teacher.name}</p>
-                    <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">{teacher.subject}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
       </motion.div>
     </div>
   );

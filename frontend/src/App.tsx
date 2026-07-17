@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Student, Class, Teacher, AttendanceRecord, CurrentUser, AttendanceStatus, UserRole } from './types';
+import { Student, Class, Teacher, Admin, AttendanceRecord, CurrentUser, AttendanceStatus, UserRole } from './types';
 import { INITIAL_TEACHERS } from './data';
 import AuthScreen from './components/AuthScreen';
 import ActivationScreen from './components/ActivationScreen';
@@ -12,26 +12,29 @@ import AdminDashboard from './components/AdminDashboard';
 import TeacherPortal from './components/TeacherPortal';
 import DeviceFrame from './components/DeviceFrame';
 import { Sparkles, ArrowLeftRight, UserCheck, Shield, BookOpen } from 'lucide-react';
-import { studentService, classService, teacherService, attendanceService, authService } from './core/container';
+import { studentService, classService, teacherService, attendanceService, adminService, authService } from './core/container';
 
 export default function App() {
   // --- STATE ---
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [admins, setAdmins] = useState<Admin[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isActivationMode, setIsActivationMode] = useState(false);
+  const [activationType, setActivationType] = useState<'teacher' | 'admin' | null>(null);
   const [activationToken, setActivationToken] = useState('');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // --- PERSISTENCE LOADER ---
   const loadData = async () => {
     try {
-      const [activeTeachers, activeClasses, activeStudents, activeAttendance, activeUser] = await Promise.all([
+      const [activeTeachers, activeClasses, activeStudents, activeAdmins, activeAttendance, activeUser] = await Promise.all([
         teacherService.getAllTeachers(),
         classService.getAllClasses(),
         studentService.getAllStudents(),
+        adminService?.getAllAdmins(),
         attendanceService.getAllRecords(),
         authService.getCurrentUser(),
       ]);
@@ -39,11 +42,13 @@ export default function App() {
       const normalizedTeachers = Array.isArray(activeTeachers) ? activeTeachers : [];
       const normalizedClasses = Array.isArray(activeClasses) ? activeClasses : [];
       const normalizedStudents = Array.isArray(activeStudents) ? activeStudents : [];
+      const normalizedAdmins = Array.isArray(activeAdmins) ? activeAdmins : [];
       const normalizedAttendance = Array.isArray(activeAttendance) ? activeAttendance : [];
 
       setTeachers(normalizedTeachers);
       setClasses(normalizedClasses);
       setStudents(normalizedStudents);
+      setAdmins(normalizedAdmins);
       setAttendanceRecords(normalizedAttendance);
       setCurrentUser(activeUser);
     } catch (error) {
@@ -55,10 +60,16 @@ export default function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get('activationToken');
+    const teacherToken = params.get('activationToken');
+    const adminToken = params.get('adminActivationToken');
 
-    if (token) {
-      setActivationToken(token);
+    if (adminToken) {
+      setActivationType('admin');
+      setActivationToken(adminToken);
+      setIsActivationMode(true);
+    } else if (teacherToken) {
+      setActivationType('teacher');
+      setActivationToken(teacherToken);
       setIsActivationMode(true);
     }
 
@@ -90,6 +101,15 @@ export default function App() {
   const handleActivateTeacher = async (token: string, password: string) => {
     const message = await authService.activateTeacher(token, password);
     setIsActivationMode(false);
+    setActivationType(null);
+    window.history.replaceState({}, '', window.location.pathname);
+    return message;
+  };
+
+  const handleActivateAdmin = async (token: string, password: string) => {
+    const message = await authService.activateAdmin(token, password);
+    setIsActivationMode(false);
+    setActivationType(null);
     window.history.replaceState({}, '', window.location.pathname);
     return message;
   };
@@ -231,6 +251,37 @@ export default function App() {
     }
   };
 
+  // --- ADMIN ACTIONS: ADMIN MANAGERS ---
+  const handleAddAdmin = async (adminData: Omit<Admin, 'id' | 'createdAt'>) => {
+    try {
+      await adminService?.createAdmin(adminData);
+      const updated = await adminService?.getAllAdmins();
+      setAdmins(updated ?? []);
+    } catch (error) {
+      console.error('Add admin error:', error);
+    }
+  };
+
+  const handleUpdateAdmin = async (updatedAdmin: Admin) => {
+    try {
+      await adminService?.updateAdmin(updatedAdmin);
+      const updated = await adminService?.getAllAdmins();
+      setAdmins(updated ?? []);
+    } catch (error) {
+      console.error('Update admin error:', error);
+    }
+  };
+
+  const handleDeleteAdmin = async (id: string) => {
+    try {
+      await adminService?.deleteAdmin(id);
+      const updated = await adminService?.getAllAdmins();
+      setAdmins(updated ?? []);
+    } catch (error) {
+      console.error('Delete admin error:', error);
+    }
+  };
+
   // --- TEACHER ACTIONS: TAKE ATTENDANCE ---
   const handleSubmitAttendance = async (
     classId: string, 
@@ -277,12 +328,16 @@ export default function App() {
   }
 
   if (isActivationMode && activationToken) {
+    const isAdminActivation = activationType === 'admin';
     return (
       <ActivationScreen
         activationToken={activationToken}
-        onActivate={handleActivateTeacher}
+        onActivate={isAdminActivation ? handleActivateAdmin : handleActivateTeacher}
+        title={isAdminActivation ? 'Activate Your Admin Account' : 'Activate Your Teacher Account'}
+        description={isAdminActivation ? 'Set a secure password to finish admin account activation.' : 'Set a secure password to finish account activation.'}
         onCancel={() => {
           setIsActivationMode(false);
+          setActivationType(null);
           setActivationToken('');
           window.history.replaceState({}, '', window.location.pathname);
         }}
@@ -349,6 +404,7 @@ export default function App() {
           students={students}
           classes={classes}
           teachers={teachers}
+          admins={admins}
           attendanceRecords={attendanceRecords}
           onAddStudent={handleAddStudent}
           onUpdateStudent={handleUpdateStudent}
@@ -362,8 +418,12 @@ export default function App() {
           onAddClass={handleAddClass}
           onUpdateClass={handleUpdateClass}
           onDeleteClass={handleDeleteClass}
+          onAddAdmin={handleAddAdmin}
+          onUpdateAdmin={handleUpdateAdmin}
+          onDeleteAdmin={handleDeleteAdmin}
           onLogout={handleLogout}
           adminName={currentUser.name}
+          currentAdminRole={currentUser.adminRole}
         />
       ) : (
         /* Teacher Mobile Portal embedded in a realistic device layout on a clean desk canvas */

@@ -540,11 +540,12 @@ func (as *AttendanceService) DeleteByClassID(classID string) error {
 
 type AuthService struct {
 	TeacherRepo repository.TeacherRepository
+	AdminRepo   repository.AdminRepository
 	SecretKey   []byte
 }
 
-func NewAuthService(repo repository.TeacherRepository, secret string) *AuthService {
-	return &AuthService{TeacherRepo: repo, SecretKey: []byte(secret)}
+func NewAuthService(teacherRepo repository.TeacherRepository, adminRepo repository.AdminRepository, secret string) *AuthService {
+	return &AuthService{TeacherRepo: teacherRepo, AdminRepo: adminRepo, SecretKey: []byte(secret)}
 }
 
 func (as *AuthService) Login(req models.LoginRequest) (*models.CurrentUser, *models.ProblemDetails, error) {
@@ -558,10 +559,14 @@ func (as *AuthService) Login(req models.LoginRequest) (*models.CurrentUser, *mod
 		}, nil
 	}
 
-	var userID, userName string
+	var userID, userName, userRole string
 
 	if req.Role == models.RoleAdmin {
-		if req.Email != "admin@school.edu" || req.Password != "admin123" {
+		admin, err := as.AdminRepo.GetByEmail(req.Email)
+		if err != nil {
+			return nil, nil, err
+		}
+		if admin == nil {
 			return nil, &models.ProblemDetails{
 				Type:   "https://scholasync.edu/errors/unauthorized",
 				Title:  "Authentication Failure",
@@ -569,8 +574,33 @@ func (as *AuthService) Login(req models.LoginRequest) (*models.CurrentUser, *mod
 				Detail: "The username or password provided is incorrect.",
 			}, nil
 		}
-		userID = "admin_1"
-		userName = "Principal Arthur"
+		if !admin.IsActive {
+			return nil, &models.ProblemDetails{
+				Type:   "https://scholasync.edu/errors/forbidden",
+				Title:  "Account Not Activated",
+				Status: 403,
+				Detail: "This admin account has not been activated yet.",
+			}, nil
+		}
+		if admin.PasswordHash == "" {
+			return nil, &models.ProblemDetails{
+				Type:   "https://scholasync.edu/errors/unauthorized",
+				Title:  "Authentication Failure",
+				Status: 401,
+				Detail: "The username or password provided is incorrect.",
+			}, nil
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(admin.PasswordHash), []byte(req.Password)); err != nil {
+			return nil, &models.ProblemDetails{
+				Type:   "https://scholasync.edu/errors/unauthorized",
+				Title:  "Authentication Failure",
+				Status: 401,
+				Detail: "The username or password provided is incorrect.",
+			}, nil
+		}
+		userID = admin.ID
+		userName = admin.Name
+		userRole = admin.Role
 	} else if req.Role == models.RoleTeacher {
 		teacher, err := as.TeacherRepo.GetByEmail(req.Email)
 		if err != nil {
@@ -637,11 +667,12 @@ func (as *AuthService) Login(req models.LoginRequest) (*models.CurrentUser, *mod
 	}
 
 	return &models.CurrentUser{
-		Role:  req.Role,
-		ID:    userID,
-		Name:  userName,
-		Email: req.Email,
-		Token: tokenString,
+		Role:      req.Role,
+		ID:        userID,
+		Name:      userName,
+		Email:     req.Email,
+		AdminRole: userRole,
+		Token:     tokenString,
 	}, nil, nil
 }
 
@@ -662,4 +693,238 @@ func (as *AuthService) ValidateToken(tokenString string) (*jwt.MapClaims, error)
 	}
 
 	return nil, errors.New("invalid jwt token")
+}
+
+// Admin Service
+type AdminService struct {
+	Repo         repository.AdminRepository
+	ResendAPIKey string
+	FrontendURL  string
+}
+
+func NewAdminService(repo repository.AdminRepository, resendKey, frontendURL string) *AdminService {
+	return &AdminService{Repo: repo, ResendAPIKey: resendKey, FrontendURL: frontendURL}
+}
+
+func (as *AdminService) GetAll() ([]models.Admin, error) {
+	return as.Repo.GetAll()
+}
+
+func (as *AdminService) GetByID(id string) (*models.Admin, error) {
+	return as.Repo.GetByID(id)
+}
+
+func (as *AdminService) Create(admin *models.Admin) (*models.ProblemDetails, error) {
+	if errs := as.validateAdmin(admin); len(errs) > 0 {
+		return &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/validation-failure",
+			Title:  "Invalid Request Parameters",
+			Status: 422,
+			Detail: "One or more request parameters failed validation constraint checks.",
+			Errors: errs,
+		}, nil
+	}
+
+	// Check if email is already registered
+	existing, err := as.Repo.GetByEmail(admin.Email)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/conflict",
+			Title:  "Conflict Detected",
+			Status: 409,
+			Detail: fmt.Sprintf("An admin with email '%s' is already registered.", admin.Email),
+		}, nil
+	}
+
+	admin.ID = fmt.Sprintf("adm_%d", time.Now().UnixNano())
+	admin.PasswordHash = ""
+	admin.ActivationToken = as.generateActivationToken()
+	admin.IsActive = false
+	admin.CreatedAt = time.Now()
+
+	err = as.Repo.Create(admin)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send activation email
+	if err := as.sendActivationEmail(admin); err != nil {
+		fmt.Printf("[WARN] Failed to send activation email: %v\n", err)
+		// Don't fail the creation just because email failed
+	}
+
+	return nil, nil
+}
+
+func (as *AdminService) Update(admin *models.Admin) (*models.ProblemDetails, error) {
+	if errs := as.validateAdmin(admin); len(errs) > 0 {
+		return &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/validation-failure",
+			Title:  "Invalid Request Parameters",
+			Status: 422,
+			Detail: "One or more request parameters failed validation constraint checks.",
+			Errors: errs,
+		}, nil
+	}
+
+	// Check email uniqueness excluding self
+	existing, err := as.Repo.GetByEmail(admin.Email)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil && existing.ID != admin.ID {
+		return &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/conflict",
+			Title:  "Conflict Detected",
+			Status: 409,
+			Detail: fmt.Sprintf("An admin with email '%s' is already registered.", admin.Email),
+		}, nil
+	}
+
+	err = as.Repo.Update(admin)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (as *AdminService) Delete(id string) error {
+	return as.Repo.Delete(id)
+}
+
+func (as *AdminService) Activate(token, password string) (*models.Admin, *models.ProblemDetails, error) {
+	if token == "" {
+		return nil, &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/validation-failure",
+			Title:  "Missing Activation Token",
+			Status: 400,
+			Detail: "Activation token is required.",
+		}, nil
+	}
+
+	if len(password) < 8 {
+		return nil, &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/validation-failure",
+			Title:  "Weak Password",
+			Status: 422,
+			Detail: "Password must be at least 8 characters long.",
+		}, nil
+	}
+
+	admin, err := as.Repo.GetByActivationToken(token)
+	if err != nil {
+		return nil, nil, err
+	}
+	if admin == nil {
+		return nil, &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/not-found",
+			Title:  "Invalid Activation Token",
+			Status: 400,
+			Detail: "The provided activation token is invalid or expired.",
+		}, nil
+	}
+	if admin.IsActive {
+		return nil, &models.ProblemDetails{
+			Type:   "https://scholasync.edu/errors/conflict",
+			Title:  "Already Activated",
+			Status: 409,
+			Detail: "This account has already been activated.",
+		}, nil
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	admin.PasswordHash = string(hash)
+	admin.ActivationToken = ""
+	admin.IsActive = true
+
+	if err := as.Repo.Update(admin); err != nil {
+		return nil, nil, err
+	}
+
+	return admin, nil, nil
+}
+
+func (as *AdminService) validateAdmin(admin *models.Admin) []models.ErrorDetail {
+	var errs []models.ErrorDetail
+	if len(admin.Name) == 0 {
+		errs = append(errs, models.ErrorDetail{Field: "name", Message: "Name cannot be empty"})
+	}
+	if len(admin.Email) == 0 {
+		errs = append(errs, models.ErrorDetail{Field: "email", Message: "Email cannot be empty"})
+	}
+	emailRegex := regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`)
+	if !emailRegex.MatchString(admin.Email) {
+		errs = append(errs, models.ErrorDetail{Field: "email", Message: "Must be a valid email address"})
+	}
+	if admin.Role != "super" && admin.Role != "limited" {
+		errs = append(errs, models.ErrorDetail{Field: "role", Message: "Role must be 'super' or 'limited'"})
+	}
+	return errs
+}
+
+func (as *AdminService) generateActivationToken() string {
+	randomBytes := make([]byte, 24)
+	_, _ = rand.Read(randomBytes)
+	return hex.EncodeToString(randomBytes)
+}
+
+func (as *AdminService) sendActivationEmail(admin *models.Admin) error {
+	if as.ResendAPIKey == "" {
+		fmt.Printf("[WARN] RESEND_API_KEY not configured. Skipping activation email for %s\n", admin.Email)
+		return nil
+	}
+
+	if as.FrontendURL == "" {
+		return fmt.Errorf("frontend URL is not configured for activation email")
+	}
+
+	activationURL := fmt.Sprintf("%s/?adminActivationToken=%s", as.FrontendURL, admin.ActivationToken)
+
+	type resendPayload struct {
+		From    string   `json:"from"`
+		To      []string `json:"to"`
+		Subject string   `json:"subject"`
+		Html    string   `json:"html"`
+		Text    string   `json:"text"`
+	}
+
+	payload := resendPayload{
+		From:    "Clastra <no-reply@rech-it.com>",
+		To:      []string{admin.Email},
+		Subject: "Activate your Clastra admin account",
+		Html:    fmt.Sprintf(`<p>Hello %s,</p><p>Please click the link below to set your password and activate your admin account:</p><p><a href="%s">Activate your account</a></p><p>If you did not request this account, please ignore this email.</p>`, admin.Name, activationURL),
+		Text:    fmt.Sprintf("Hello %s,\n\nPlease open the following link to set your password and activate your admin account:\n%s\n\nIf you did not request this account, ignore this email.", admin.Name, activationURL),
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", as.ResendAPIKey))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to send activation email: status %d", resp.StatusCode)
+	}
+
+	return nil
 }

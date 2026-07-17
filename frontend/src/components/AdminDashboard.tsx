@@ -9,18 +9,20 @@ import {
   Users, School, UserCheck, BarChart3, Download, Plus, Search, 
   Filter, Edit2, Trash2, Calendar, FileSpreadsheet, LogOut, Check, 
   X, AlertCircle, RefreshCw, Layers, Award, UserPlus, ArrowRight,
-  GraduationCap
+  GraduationCap, Shield
 } from 'lucide-react';
-import { Student, Class, Teacher, AttendanceRecord, AttendanceStatus } from '../types';
+import { Student, Class, Teacher, AttendanceRecord, AttendanceStatus, Admin } from '../types';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, 
   Legend, LineChart, Line, CartesianGrid, PieChart, Pie, Cell 
 } from 'recharts';
+import AdminManagement from './AdminManagement';
 
 interface AdminDashboardProps {
   students: Student[];
   classes: Class[];
   teachers: Teacher[];
+  admins: Admin[];
   attendanceRecords: AttendanceRecord[];
   onAddStudent: (student: Omit<Student, 'id'>, classIds?: string[]) => Promise<void>;
   onUpdateStudent: (student: Student) => Promise<void>;
@@ -28,22 +30,27 @@ interface AdminDashboardProps {
   onAssignStudentToClass: (studentId: string, classId: string) => Promise<void>;
   onRemoveStudentFromClass: (studentId: string, classId: string) => Promise<void>;
   onGetStudentClassIds: (studentId: string) => Promise<string[]>;
-  onAddTeacher: (teacher: Omit<Teacher, 'id'>) => void;
-  onUpdateTeacher: (teacher: Teacher) => void;
-  onDeleteTeacher: (id: string) => void;
-  onAddClass: (cls: Omit<Class, 'id'>) => void;
-  onUpdateClass: (cls: Class) => void;
-  onDeleteClass: (id: string) => void;
+  onAddTeacher: (teacher: Omit<Teacher, 'id'>) => Promise<void>;
+  onUpdateTeacher: (teacher: Teacher) => Promise<void>;
+  onDeleteTeacher: (id: string) => Promise<void>;
+  onAddAdmin: (admin: Omit<Admin, 'id' | 'createdAt'>) => Promise<void>;
+  onUpdateAdmin: (admin: Admin) => Promise<void>;
+  onDeleteAdmin: (id: string) => Promise<void>;
+  onAddClass: (cls: Omit<Class, 'id'>) => Promise<void>;
+  onUpdateClass: (cls: Class) => Promise<void>;
+  onDeleteClass: (id: string) => Promise<void>;
   onLogout: () => void;
   adminName: string;
+  currentAdminRole?: 'super' | 'limited' | null;
 }
 
-type TabType = 'overview' | 'students' | 'classes' | 'teachers' | 'attendance' | 'reports';
+type TabType = 'overview' | 'students' | 'classes' | 'teachers' | 'admins' | 'attendance' | 'reports';
 
 export default function AdminDashboard({
   students: studentsProp,
   classes: classesProp,
   teachers: teachersProp,
+  admins: adminsProp,
   attendanceRecords: attendanceRecordsProp,
   onAddStudent,
   onUpdateStudent,
@@ -54,16 +61,23 @@ export default function AdminDashboard({
   onAssignStudentToClass,
   onRemoveStudentFromClass,
   onGetStudentClassIds,
+  onAddAdmin,
+  onUpdateAdmin,
+  onDeleteAdmin,
   onAddClass,
   onUpdateClass,
   onDeleteClass,
   onLogout,
   adminName,
+  currentAdminRole,
 }: AdminDashboardProps) {
   const students = studentsProp ?? [];
   const classes = classesProp ?? [];
   const teachers = teachersProp ?? [];
+  const admins = adminsProp ?? [];
   const attendanceRecords = attendanceRecordsProp ?? [];
+  const canEditAdmins = currentAdminRole === 'super';
+  const adminRoleLabel = currentAdminRole === 'super' ? 'Super Admin' : currentAdminRole === 'limited' ? 'Limited Admin' : 'Administrator';
 
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
@@ -583,6 +597,20 @@ export default function AdminDashboard({
 
               <button
                 type="button"
+                id="sidebar-tab-admins"
+                onClick={() => setActiveTab('admins')}
+                className={`w-full flex items-center gap-3 py-2.5 px-6 transition-all duration-150 cursor-pointer text-sm font-semibold ${
+                  activeTab === 'admins' 
+                    ? 'bg-indigo-50/70 text-indigo-700 border-l-4 border-indigo-600 pl-5' 
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent pl-5'
+                }`}
+              >
+                <Shield className="w-4 h-4" />
+                Manage Admins
+              </button>
+
+              <button
+                type="button"
                 id="sidebar-tab-attendance"
                 onClick={() => setActiveTab('attendance')}
                 className={`w-full flex items-center gap-3 py-2.5 px-6 transition-all duration-150 cursor-pointer text-sm font-semibold ${
@@ -628,7 +656,7 @@ export default function AdminDashboard({
           
           {/* Mobile Navigation Header */}
           <div className="flex md:hidden items-center overflow-x-auto gap-2 pb-4 mb-4 border-b border-slate-200">
-            {(['overview', 'students', 'classes', 'teachers', 'attendance', 'reports'] as TabType[]).map(tab => (
+            {(['overview', 'students', 'classes', 'teachers', 'admins', 'attendance', 'reports'] as TabType[]).map(tab => (
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); setStudentPage(1); }}
@@ -1337,6 +1365,24 @@ export default function AdminDashboard({
                       </table>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* 4. ADMIN USERS TAB */}
+              {activeTab === 'admins' && (
+                <div id="admins-tab-view" className="space-y-6">
+                      {currentAdminRole === 'limited' && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-700 text-sm">
+                      You are signed in as a limited admin. You can view administrator accounts here, but creating, updating, and deleting admin users is restricted.
+                    </div>
+                  )}
+                  <AdminManagement
+                    admins={admins}
+                    onAddAdmin={onAddAdmin}
+                    onUpdateAdmin={onUpdateAdmin}
+                    onDeleteAdmin={onDeleteAdmin}
+                    canManageAdmins={canEditAdmins}
+                  />
                 </div>
               )}
 

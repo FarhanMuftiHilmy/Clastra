@@ -45,6 +45,17 @@ type AttendanceRepository interface {
 	RemoveStudentFromRecords(studentID string) error
 }
 
+type AdminRepository interface {
+	GetAll() ([]models.Admin, error)
+	GetByID(id string) (*models.Admin, error)
+	Create(admin *models.Admin) error
+	Update(admin *models.Admin) error
+	GetByEmail(email string) (*models.Admin, error)
+	GetByActivationToken(token string) (*models.Admin, error)
+	Delete(id string) error
+	UpdateLastLogin(id string) error
+}
+
 // Concrete Postgres Implementations
 type PostgresStudentRepository struct {
 	DB *sql.DB
@@ -462,5 +473,127 @@ func (r *PostgresAttendanceRepository) DeleteByClassID(classID string) error {
 func (r *PostgresAttendanceRepository) RemoveStudentFromRecords(studentID string) error {
 	query := "DELETE FROM attendance_student_joins WHERE student_id = $1"
 	_, err := r.DB.Exec(query, studentID)
+	return err
+}
+
+// Admin Implementation
+type PostgresAdminRepository struct {
+	DB *sql.DB
+}
+
+func NewPostgresAdminRepository(db *sql.DB) AdminRepository {
+	return &PostgresAdminRepository{DB: db}
+}
+
+func (r *PostgresAdminRepository) GetAll() ([]models.Admin, error) {
+	query := "SELECT id, name, email, role, password_hash, activation_token, is_active, created_at, last_login FROM admins ORDER BY created_at DESC"
+	rows, err := r.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var admins []models.Admin
+	for rows.Next() {
+		var a models.Admin
+		var passwordHash sql.NullString
+		var activationToken sql.NullString
+		var lastLogin sql.NullTime
+		if err := rows.Scan(&a.ID, &a.Name, &a.Email, &a.Role, &passwordHash, &activationToken, &a.IsActive, &a.CreatedAt, &lastLogin); err != nil {
+			return nil, err
+		}
+		a.PasswordHash = passwordHash.String
+		a.ActivationToken = activationToken.String
+		if lastLogin.Valid {
+			a.LastLogin = &lastLogin.Time
+		}
+		admins = append(admins, a)
+	}
+	return admins, nil
+}
+
+func (r *PostgresAdminRepository) GetByID(id string) (*models.Admin, error) {
+	var a models.Admin
+	query := "SELECT id, name, email, role, password_hash, activation_token, is_active, created_at, last_login FROM admins WHERE id = $1"
+	var passwordHash sql.NullString
+	var activationToken sql.NullString
+	var lastLogin sql.NullTime
+	err := r.DB.QueryRow(query, id).Scan(&a.ID, &a.Name, &a.Email, &a.Role, &passwordHash, &activationToken, &a.IsActive, &a.CreatedAt, &lastLogin)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	a.PasswordHash = passwordHash.String
+	a.ActivationToken = activationToken.String
+	if lastLogin.Valid {
+		a.LastLogin = &lastLogin.Time
+	}
+	return &a, nil
+}
+
+func (r *PostgresAdminRepository) Create(a *models.Admin) error {
+	a.ID = fmt.Sprintf("adm_%d", time.Now().UnixNano())
+	a.CreatedAt = time.Now()
+	query := "INSERT INTO admins (id, name, email, role, password_hash, activation_token, is_active, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
+	_, err := r.DB.Exec(query, a.ID, a.Name, a.Email, a.Role, a.PasswordHash, a.ActivationToken, a.IsActive, a.CreatedAt)
+	return err
+}
+
+func (r *PostgresAdminRepository) Update(a *models.Admin) error {
+	query := "UPDATE admins SET name = $1, email = $2, role = $3, password_hash = $4, activation_token = $5, is_active = $6, updated_at = NOW() WHERE id = $7"
+	_, err := r.DB.Exec(query, a.Name, a.Email, a.Role, a.PasswordHash, a.ActivationToken, a.IsActive, a.ID)
+	return err
+}
+
+func (r *PostgresAdminRepository) GetByEmail(email string) (*models.Admin, error) {
+	var a models.Admin
+	query := "SELECT id, name, email, role, password_hash, activation_token, is_active, created_at, last_login FROM admins WHERE email = $1"
+	var passwordHash sql.NullString
+	var activationToken sql.NullString
+	var lastLogin sql.NullTime
+	err := r.DB.QueryRow(query, email).Scan(&a.ID, &a.Name, &a.Email, &a.Role, &passwordHash, &activationToken, &a.IsActive, &a.CreatedAt, &lastLogin)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	a.PasswordHash = passwordHash.String
+	a.ActivationToken = activationToken.String
+	if lastLogin.Valid {
+		a.LastLogin = &lastLogin.Time
+	}
+	return &a, nil
+}
+
+func (r *PostgresAdminRepository) GetByActivationToken(token string) (*models.Admin, error) {
+	var a models.Admin
+	query := "SELECT id, name, email, role, password_hash, activation_token, is_active, created_at, last_login FROM admins WHERE activation_token = $1"
+	var passwordHash sql.NullString
+	var activationToken sql.NullString
+	var lastLogin sql.NullTime
+	err := r.DB.QueryRow(query, token).Scan(&a.ID, &a.Name, &a.Email, &a.Role, &passwordHash, &activationToken, &a.IsActive, &a.CreatedAt, &lastLogin)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	a.PasswordHash = passwordHash.String
+	a.ActivationToken = activationToken.String
+	if lastLogin.Valid {
+		a.LastLogin = &lastLogin.Time
+	}
+	return &a, nil
+}
+
+func (r *PostgresAdminRepository) Delete(id string) error {
+	query := "DELETE FROM admins WHERE id = $1"
+	_, err := r.DB.Exec(query, id)
+	return err
+}
+
+func (r *PostgresAdminRepository) UpdateLastLogin(id string) error {
+	query := "UPDATE admins SET last_login = NOW() WHERE id = $1"
+	_, err := r.DB.Exec(query, id)
 	return err
 }
