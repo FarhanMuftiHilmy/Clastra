@@ -2,9 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"scholasync/backend/models"
 	"scholasync/backend/service"
+
 	"github.com/gorilla/mux"
 )
 
@@ -106,6 +108,7 @@ func (c *Controller) HandleGetStudents(w http.ResponseWriter, r *http.Request) {
 
 	students, err := c.Student.GetAll(search, classID)
 	if err != nil {
+		log.Printf("[ERROR] HandleGetStudents failed search=%q classId=%q: %v", search, classID, err)
 		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Database Read Error", err.Error())
 		return
 	}
@@ -510,6 +513,7 @@ func (c *Controller) HandleGetAttendance(w http.ResponseWriter, r *http.Request)
 
 	records, err := c.Attendance.GetAll(classID, date)
 	if err != nil {
+		log.Printf("[ERROR] HandleGetAttendance failed classId=%q date=%q: %v", classID, date, err)
 		writeProblem(w, r.URL.Path, http.StatusInternalServerError, "Database Read Error", err.Error())
 		return
 	}

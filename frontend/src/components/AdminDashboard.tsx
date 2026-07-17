@@ -46,6 +46,8 @@ interface AdminDashboardProps {
   onAddClass: (cls: Omit<Class, 'id'>) => Promise<void>;
   onUpdateClass: (cls: Class) => Promise<void>;
   onDeleteClass: (id: string) => Promise<void>;
+  onRefreshAttendance: () => Promise<void>;
+  isRefreshingAttendance: boolean;
   onLogout: () => void;
   adminName: string;
   currentAdminRole?: 'super' | 'limited' | null;
@@ -74,6 +76,8 @@ export default function AdminDashboard({
   onAddClass,
   onUpdateClass,
   onDeleteClass,
+  onRefreshAttendance,
+  isRefreshingAttendance,
   onLogout,
   adminName,
   currentAdminRole,
@@ -91,7 +95,8 @@ export default function AdminDashboard({
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   const getTabFromPath = (pathname: string): TabType => {
-    const cleanPath = pathname.split('/').filter(Boolean)[0] || 'overview';
+    const parts = pathname.split('/').filter(Boolean);
+    const cleanPath = parts.length <= 1 ? 'overview' : parts[1];
 
     switch (cleanPath) {
       case 'students':
@@ -117,7 +122,7 @@ export default function AdminDashboard({
       setStudentPage(1);
     }
 
-    const path = tab === 'overview' ? '/' : `/${tab}`;
+    const path = tab === 'overview' ? '/admin' : `/admin/${tab}`;
     navigate(path);
   };
 
@@ -986,6 +991,8 @@ export default function AdminDashboard({
                   setAttendanceDateFilter={setAttendanceDateFilter}
                   setAttendanceStatusFilter={setAttendanceStatusFilter}
                   onExportAttendance={handleExportAttendance}
+                  onRefreshAttendance={onRefreshAttendance}
+                  isRefreshingAttendance={isRefreshingAttendance}
                 />
               )}
 

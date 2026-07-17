@@ -1,5 +1,5 @@
 import React from 'react';
-import { Filter, Search, Calendar, Download, FileSpreadsheet } from 'lucide-react';
+import { Filter, Search, Calendar, Download, RefreshCw, FileSpreadsheet } from 'lucide-react';
 import { Class } from '../../types';
 
 interface AttendanceLogItem {
@@ -24,6 +24,8 @@ interface AttendancePageProps {
   setAttendanceDateFilter: React.Dispatch<React.SetStateAction<string>>;
   setAttendanceStatusFilter: React.Dispatch<React.SetStateAction<string>>;
   onExportAttendance: () => void;
+  onRefreshAttendance: () => Promise<void>;
+  isRefreshingAttendance: boolean;
 }
 
 export default function AttendancePage({
@@ -38,6 +40,8 @@ export default function AttendancePage({
   setAttendanceDateFilter,
   setAttendanceStatusFilter,
   onExportAttendance,
+  onRefreshAttendance,
+  isRefreshingAttendance,
 }: AttendancePageProps) {
   return (
     <div id="attendance-tab-view" className="space-y-6">
@@ -47,15 +51,28 @@ export default function AttendancePage({
           <p className="text-sm text-slate-500">Audit daily attendance submissions, filter entries, and download records</p>
         </div>
 
-        <button
-          type="button"
-          id="export-attendance-btn"
-          onClick={onExportAttendance}
-          className="inline-flex items-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer select-none"
-        >
-          <Download className="w-4 h-4" />
-          Export to Excel (CSV)
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            id="refresh-attendance-btn"
+            onClick={onRefreshAttendance}
+            disabled={isRefreshingAttendance}
+            className="inline-flex items-center gap-2 py-2.5 px-4 bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer select-none disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw className="w-4 h-4" />
+            {isRefreshingAttendance ? 'Refreshing...' : 'Refresh Ledger'}
+          </button>
+
+          <button
+            type="button"
+            id="export-attendance-btn"
+            onClick={onExportAttendance}
+            className="inline-flex items-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer select-none"
+          >
+            <Download className="w-4 h-4" />
+            Export to Excel (CSV)
+          </button>
+        </div>
       </div>
 
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">

@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { 
   BookOpen, ChevronRight, CheckCircle2, User, Calendar, 
   Users, Check, Info, ShieldAlert, Sparkles, Smile, ArrowLeft,
@@ -33,6 +34,8 @@ export default function TeacherPortal({
   const [attendanceDate, setAttendanceDate] = useState(() => {
     return new Date().toISOString().split('T')[0]; // Default to today
   });
+  const navigate = useNavigate();
+  const { classId: routeClassId } = useParams<{ classId?: string }>();
 
   // State to hold active marking roster
   // Key: studentId, Value: AttendanceStatus
@@ -49,7 +52,11 @@ export default function TeacherPortal({
     : [];
 
   // Handle Opening/Selecting a class to mark attendance
-  const handleOpenClass = (cls: Class) => {
+  const handleOpenClass = useCallback((cls: Class, shouldNavigate = true) => {
+    if (shouldNavigate) {
+      navigate(`/teacher/class/${cls.id}`);
+    }
+
     setSelectedClass(cls);
     setShowSuccessScreen(false);
 
@@ -71,7 +78,7 @@ export default function TeacherPortal({
     });
 
     setMarkingRoster(initialRoster);
-  };
+  }, [attendanceDate, attendanceRecords, navigate, students]);
 
   // Fast action: mark all students in class as Present
   const handleMarkAllPresent = () => {
@@ -107,6 +114,18 @@ export default function TeacherPortal({
       setShowSuccessScreen(true);
     }, 1200);
   };
+
+  useEffect(() => {
+    if (routeClassId) {
+      const routeClass = assignedClasses.find(c => c.id === routeClassId) || classes.find(c => c.id === routeClassId);
+      if (routeClass && routeClass.id !== selectedClass?.id) {
+        handleOpenClass(routeClass, false);
+      }
+    } else if (selectedClass) {
+      setSelectedClass(null);
+      setShowSuccessScreen(false);
+    }
+  }, [routeClassId, assignedClasses, classes, selectedClass, handleOpenClass]);
 
   return (
     <div id="teacher-mobile-portal" className="h-full bg-slate-50 flex flex-col font-sans select-none relative">
@@ -158,7 +177,7 @@ export default function TeacherPortal({
               
               <h4 className="text-sm font-bold">Attendance Accountability</h4>
               <p className="text-[10px] text-indigo-100 leading-relaxed max-w-[85%]">
-                Select an assigned class below to inspect student roster, mark absentees, and report metrics to Principal Arthur.
+                Select an assigned class below to inspect student roster, mark absentees, and report metrics.
               </p>
             </div>
 
@@ -269,7 +288,7 @@ export default function TeacherPortal({
             <button
               type="button"
               id="success-back-home"
-              onClick={() => setSelectedClass(null)}
+              onClick={() => navigate('/teacher')}
               className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer select-none"
             >
               Back to Class Registry
@@ -290,7 +309,7 @@ export default function TeacherPortal({
               <button
                 type="button"
                 id="back-to-classes-btn"
-                onClick={() => setSelectedClass(null)}
+                onClick={() => navigate('/teacher')}
                 className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-900 transition-all cursor-pointer"
               >
                 <ArrowLeft className="w-4.5 h-4.5" />

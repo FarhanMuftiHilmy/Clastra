@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Student, Class, Teacher, Admin, AttendanceRecord, CurrentUser, AttendanceStatus, UserRole } from './types';
 import { INITIAL_TEACHERS } from './data';
 import AuthScreen from './components/AuthScreen';
@@ -26,29 +27,28 @@ export default function App() {
   const [activationType, setActivationType] = useState<'teacher' | 'admin' | null>(null);
   const [activationToken, setActivationToken] = useState('');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   // --- PERSISTENCE LOADER ---
   const loadData = async () => {
     try {
       const activeUser = await authService.getCurrentUser();
 
-      const [activeTeachers, activeClasses, activeStudents, activeAttendance] = await Promise.all([
+      const results = await Promise.allSettled([
         teacherService.getAllTeachers(),
         classService.getAllClasses(),
         studentService.getAllStudents(),
         attendanceService.getAllRecords(),
+        ...(activeUser?.role === 'admin' && adminService ? [adminService.getAllAdmins()] : []),
       ]);
 
-      const activeAdmins =
-        activeUser?.role === 'admin' && adminService
-          ? await adminService.getAllAdmins()
-          : [];
-
-      const normalizedTeachers = Array.isArray(activeTeachers) ? activeTeachers : [];
-      const normalizedClasses = Array.isArray(activeClasses) ? activeClasses : [];
-      const normalizedStudents = Array.isArray(activeStudents) ? activeStudents : [];
-      const normalizedAdmins = Array.isArray(activeAdmins) ? activeAdmins : [];
-      const normalizedAttendance = Array.isArray(activeAttendance) ? activeAttendance : [];
+      const [teachersResult, classesResult, studentsResult, attendanceResult, adminsResult] = results;
+      const normalizedTeachers = teachersResult.status === 'fulfilled' && Array.isArray(teachersResult.value) ? teachersResult.value : [];
+      const normalizedClasses = classesResult.status === 'fulfilled' && Array.isArray(classesResult.value) ? classesResult.value : [];
+      const normalizedStudents = studentsResult.status === 'fulfilled' && Array.isArray(studentsResult.value) ? studentsResult.value : [];
+      const normalizedAttendance = attendanceResult.status === 'fulfilled' && Array.isArray(attendanceResult.value) ? attendanceResult.value : [];
+      const normalizedAdmins = adminsResult?.status === 'fulfilled' && Array.isArray(adminsResult.value) ? adminsResult.value : [];
 
       setTeachers(normalizedTeachers);
       setClasses(normalizedClasses);
@@ -58,6 +58,12 @@ export default function App() {
       setCurrentUser(activeUser);
     } catch (error) {
       console.error('Error loading initialization data from services:', error);
+      setTeachers([]);
+      setClasses([]);
+      setStudents([]);
+      setAdmins([]);
+      setAttendanceRecords([]);
+      setCurrentUser(null);
     } finally {
       setIsDataLoaded(true);
     }
@@ -85,7 +91,10 @@ export default function App() {
   const handleLoginSuccess = async (role: UserRole, userDetail: { id: string; name: string; email: string; password?: string }) => {
     try {
       const sessionUser = await authService.login(role, userDetail.email, userDetail.password);
+      setIsDataLoaded(false);
+      await loadData();
       setCurrentUser(sessionUser);
+      navigate(sessionUser.role === 'admin' ? '/admin' : '/teacher', { replace: true });
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -98,6 +107,7 @@ export default function App() {
       setCurrentUser(null);
       setIsActivationMode(false);
       setActivationToken('');
+      navigate('/', { replace: true });
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -260,6 +270,20 @@ export default function App() {
     }
   };
 
+  const [isRefreshingAttendance, setIsRefreshingAttendance] = useState(false);
+
+  const handleRefreshAttendance = async () => {
+    try {
+      setIsRefreshingAttendance(true);
+      const updatedAttendance = await attendanceService.getAllRecords();
+      setAttendanceRecords(updatedAttendance);
+    } catch (error) {
+      console.error('Refresh attendance error:', error);
+    } finally {
+      setIsRefreshingAttendance(false);
+    }
+  };
+
   // --- ADMIN ACTIONS: ADMIN MANAGERS ---
   const handleAddAdmin = async (adminData: Omit<Admin, 'id' | 'createdAt'>) => {
     try {
@@ -311,19 +335,46 @@ export default function App() {
   // --- SANBOX ROLE QUICK SWITCHER FOR LIVE PREVIEW ---
   const handleSandboxSwitch = async (role: UserRole) => {
     try {
+      let user;
       if (role === 'admin') {
-        const user = await authService.login('admin', 'admin@school.edu', 'admin123');
-        setCurrentUser(user);
+        user = await authService.login('admin', 'admin@school.edu', 'admin123');
       } else {
         // Login as Sarah Jenkins (t1) by default
         const sarah = teachers.find(t => t.id === 't1') || INITIAL_TEACHERS[0];
-        const user = await authService.login('teacher', sarah.email, 'teacher123');
-        setCurrentUser(user);
+        user = await authService.login('teacher', sarah.email, 'teacher123');
       }
+      setIsDataLoaded(false);
+      await loadData();
+      setCurrentUser(user);
+      navigate(user.role === 'admin' ? '/admin' : '/teacher', { replace: true });
     } catch (error) {
       console.error('Sandbox switch error:', error);
     }
   };
+
+  useEffect(() => {
+    if (!isDataLoaded) return;
+
+    if (!currentUser) {
+      if (location.pathname === '/teacher' || location.pathname === '/teachers/portal' || location.pathname === '/admin') {
+        navigate('/', { replace: true });
+      }
+      return;
+    }
+
+    const isTeacherRoute = location.pathname.startsWith('/teacher');
+    const isAdminRoute = location.pathname.startsWith('/admin');
+
+    if (currentUser.role === 'teacher' && isAdminRoute) {
+      navigate('/teacher', { replace: true });
+    } else if (currentUser.role === 'admin' && isTeacherRoute) {
+      navigate('/admin', { replace: true });
+    } else if (location.pathname === '/' && currentUser.role === 'teacher') {
+      navigate('/teacher', { replace: true });
+    } else if (location.pathname === '/' && currentUser.role === 'admin') {
+      navigate('/admin', { replace: true });
+    }
+  }, [currentUser, isDataLoaded, location.pathname, navigate]);
 
   if (!isDataLoaded) {
     return (
@@ -354,9 +405,58 @@ export default function App() {
     );
   }
 
+  const renderTeacherPortal = () => (
+    <div id="teacher-portal-workspace" className="min-h-screen bg-slate-50 flex flex-col items-center py-10 px-4">
+      <div className="w-full max-w-4xl">
+        <TeacherPortal
+          teacher={
+            teachers.find(t =>
+              t.id === currentUser?.id ||
+              (t.email && currentUser?.email && t.email.toLowerCase() === currentUser.email.toLowerCase())
+            ) || { id: currentUser?.id ?? 'teacher', name: currentUser?.name ?? 'Teacher', email: currentUser?.email ?? '', subject: 'General' }
+          }
+          classes={classes}
+          students={students}
+          attendanceRecords={attendanceRecords}
+          onSubmitAttendance={handleSubmitAttendance}
+          onLogout={handleLogout}
+        />
+      </div>
+    </div>
+  );
+
+  const renderAdminDashboard = () => (
+    <AdminDashboard
+      students={students}
+      classes={classes}
+      teachers={teachers}
+      admins={admins}
+      attendanceRecords={attendanceRecords}
+      onAddStudent={handleAddStudent}
+      onUpdateStudent={handleUpdateStudent}
+      onDeleteStudent={handleDeleteStudent}
+      onAddTeacher={handleAddTeacher}
+      onUpdateTeacher={handleUpdateTeacher}
+      onDeleteTeacher={handleDeleteTeacher}
+      onAssignStudentToClass={handleAssignStudentToClass}
+      onRemoveStudentFromClass={handleRemoveStudentFromClass}
+      onGetStudentClassIds={handleGetStudentClassIds}
+      onAddClass={handleAddClass}
+      onUpdateClass={handleUpdateClass}
+      onDeleteClass={handleDeleteClass}
+      onRefreshAttendance={handleRefreshAttendance}
+      isRefreshingAttendance={isRefreshingAttendance}
+      onAddAdmin={handleAddAdmin}
+      onUpdateAdmin={handleUpdateAdmin}
+      onDeleteAdmin={handleDeleteAdmin}
+      onLogout={handleLogout}
+      adminName={currentUser?.name ?? 'Admin'}
+      currentAdminRole={currentUser?.adminRole}
+    />
+  );
+
   return (
     <div className="relative min-h-screen bg-slate-50">
-      
       {/* Floating Developer Sandbox Controller */}
       {/* <div 
         id="sandbox-developer-hub" 
@@ -402,59 +502,36 @@ export default function App() {
         </div>
       </div> */}
 
-      {/* --- CONDITIONAL ROUTE RENDERER --- */}
-      {currentUser === null ? (
-        <AuthScreen 
-          teachers={teachers} 
-          onLoginSuccess={handleLoginSuccess} 
+      <Routes>
+        <Route
+          path="/teacher"
+          element={currentUser?.role === 'teacher' ? renderTeacherPortal() : <AuthScreen teachers={teachers} onLoginSuccess={handleLoginSuccess} />}
         />
-      ) : currentUser.role === 'admin' ? (
-        <AdminDashboard
-          students={students}
-          classes={classes}
-          teachers={teachers}
-          admins={admins}
-          attendanceRecords={attendanceRecords}
-          onAddStudent={handleAddStudent}
-          onUpdateStudent={handleUpdateStudent}
-          onDeleteStudent={handleDeleteStudent}
-          onAddTeacher={handleAddTeacher}
-          onUpdateTeacher={handleUpdateTeacher}
-          onDeleteTeacher={handleDeleteTeacher}
-          onAssignStudentToClass={handleAssignStudentToClass}
-          onRemoveStudentFromClass={handleRemoveStudentFromClass}
-          onGetStudentClassIds={handleGetStudentClassIds}
-          onAddClass={handleAddClass}
-          onUpdateClass={handleUpdateClass}
-          onDeleteClass={handleDeleteClass}
-          onAddAdmin={handleAddAdmin}
-          onUpdateAdmin={handleUpdateAdmin}
-          onDeleteAdmin={handleDeleteAdmin}
-          onLogout={handleLogout}
-          adminName={currentUser.name}
-          currentAdminRole={currentUser.adminRole}
+        <Route
+          path="/teacher/class/:classId"
+          element={currentUser?.role === 'teacher' ? renderTeacherPortal() : <AuthScreen teachers={teachers} onLoginSuccess={handleLoginSuccess} />}
         />
-      ) : (
-        /* Teacher Mobile Portal embedded in a realistic device layout on a clean desk canvas */
-        <div id="teacher-portal-workspace" className="min-h-screen bg-slate-50 flex flex-col items-center py-10 px-4">
-          <div className="w-full max-w-4xl">
-            <TeacherPortal
-              teacher={
-                teachers.find(t =>
-                  t.id === currentUser.id ||
-                  (t.email && currentUser.email && t.email.toLowerCase() === currentUser.email.toLowerCase())
-                ) || { id: currentUser.id, name: currentUser.name, email: currentUser.email, subject: 'General' }
-              }
-              classes={classes}
-              students={students}
-              attendanceRecords={attendanceRecords}
-              onSubmitAttendance={handleSubmitAttendance}
-              onLogout={handleLogout}
-            />
-          </div>
-        </div>
-      )}
-
+        <Route
+          path="/teachers/portal"
+          element={currentUser?.role === 'teacher' ? renderTeacherPortal() : <AuthScreen teachers={teachers} onLoginSuccess={handleLoginSuccess} />}
+        />
+        <Route
+          path="/admin/*"
+          element={currentUser?.role === 'admin' ? renderAdminDashboard() : <AuthScreen teachers={teachers} onLoginSuccess={handleLoginSuccess} />}
+        />
+        <Route
+          path="/"
+          element={
+            currentUser === null ? (
+              <AuthScreen teachers={teachers} onLoginSuccess={handleLoginSuccess} />
+            ) : currentUser.role === 'admin' ? (
+              renderAdminDashboard()
+            ) : (
+              renderTeacherPortal()
+            )
+          }
+        />
+      </Routes>
     </div>
   );
 }

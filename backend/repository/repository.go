@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"scholasync/backend/models"
 	"time"
 )
@@ -88,6 +89,7 @@ func (r *PostgresStudentRepository) GetAll(search, classID string) ([]models.Stu
 
 	rows, err := r.DB.Query(query, args...)
 	if err != nil {
+		log.Printf("[ERROR] PostgresStudentRepository.GetAll query failed query=%q args=%v err=%v", query, args, err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -160,6 +162,7 @@ func (r *PostgresStudentRepository) GetClassIDs(studentID string) ([]string, err
 	query := "SELECT class_id FROM student_class_joins WHERE student_id = $1"
 	rows, err := r.DB.Query(query, studentID)
 	if err != nil {
+		log.Printf("[ERROR] PostgresStudentRepository.GetClassIDs query failed query=%q studentID=%q err=%v", query, studentID, err)
 		return nil, err
 	}
 	defer rows.Close()
