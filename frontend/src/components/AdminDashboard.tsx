@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Users, School, UserCheck, BarChart3, Download, Plus, Search, 
   Filter, Edit2, Trash2, Calendar, FileSpreadsheet, LogOut, Check, 
@@ -17,6 +18,12 @@ import {
   Legend, LineChart, Line, CartesianGrid, PieChart, Pie, Cell 
 } from 'recharts';
 import AdminManagement from './AdminManagement';
+import OverviewPage from './admin/OverviewPage';
+import StudentsPage from './admin/StudentsPage';
+import ClassesPage from './admin/ClassesPage';
+import TeachersPage from './admin/TeachersPage';
+import AttendancePage from './admin/AttendancePage';
+import { asArray } from '../utils/safe';
 
 interface AdminDashboardProps {
   students: Student[];
@@ -78,8 +85,45 @@ export default function AdminDashboard({
   const attendanceRecords = attendanceRecordsProp ?? [];
   const canEditAdmins = currentAdminRole === 'super';
   const adminRoleLabel = currentAdminRole === 'super' ? 'Super Admin' : currentAdminRole === 'limited' ? 'Limited Admin' : 'Administrator';
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+
+  const getTabFromPath = (pathname: string): TabType => {
+    const cleanPath = pathname.split('/').filter(Boolean)[0] || 'overview';
+
+    switch (cleanPath) {
+      case 'students':
+        return 'students';
+      case 'classes':
+        return 'classes';
+      case 'teachers':
+        return 'teachers';
+      case 'admins':
+        return 'admins';
+      case 'attendance':
+        return 'attendance';
+      case 'reports':
+        return 'reports';
+      default:
+        return 'overview';
+    }
+  };
+
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    if (tab === 'students') {
+      setStudentPage(1);
+    }
+
+    const path = tab === 'overview' ? '/' : `/${tab}`;
+    navigate(path);
+  };
+
+  useEffect(() => {
+    setActiveTab(getTabFromPath(location.pathname));
+  }, [location.pathname]);
 
   // --- Search / Filters State ---
   const [studentSearch, setStudentSearch] = useState('');
@@ -137,10 +181,12 @@ export default function AdminDashboard({
     let totalPresentCount = 0;
     let totalStudentCount = 0;
 
-    attendanceRecords.forEach(record => {
-      record.students.forEach(s => {
+    asArray(attendanceRecords).forEach(record => {
+      const studentsForRecord = asArray(record?.students);
+
+      studentsForRecord.forEach(s => {
         totalStudentCount++;
-        if (s.status === 'Present') {
+        if (s?.status === 'Present') {
           totalPresentCount++;
         }
       });
@@ -156,12 +202,14 @@ export default function AdminDashboard({
     let excused = 0;
     let absent = 0;
 
-    attendanceRecords.forEach(record => {
-      record.students.forEach(s => {
-        if (s.status === 'Present') present++;
-        else if (s.status === 'Sick') sick++;
-        else if (s.status === 'Excused') excused++;
-        else if (s.status === 'Absent') absent++;
+    asArray(attendanceRecords).forEach(record => {
+      const studentsForRecord = asArray(record?.students);
+
+      studentsForRecord.forEach(s => {
+        if (s?.status === 'Present') present++;
+        else if (s?.status === 'Sick') sick++;
+        else if (s?.status === 'Excused') excused++;
+        else if (s?.status === 'Absent') absent++;
       });
     });
 
@@ -183,10 +231,12 @@ export default function AdminDashboard({
       let present = 0;
       let total = 0;
 
-      clsRecords.forEach(record => {
-        record.students.forEach(s => {
+      asArray(clsRecords).forEach(record => {
+        const studentsForRecord = asArray(record?.students);
+
+        studentsForRecord.forEach(s => {
           total++;
-          if (s.status === 'Present') present++;
+          if (s?.status === 'Present') present++;
         });
       });
 
@@ -210,10 +260,12 @@ export default function AdminDashboard({
       let present = 0;
       let total = 0;
 
-      dateRecords.forEach(record => {
-        record.students.forEach(s => {
+      asArray(dateRecords).forEach(record => {
+        const studentsForRecord = asArray(record?.students);
+
+        studentsForRecord.forEach(s => {
           total++;
-          if (s.status === 'Present') present++;
+          if (s?.status === 'Present') present++;
         });
       });
 
@@ -278,14 +330,15 @@ export default function AdminDashboard({
       submittedBy: string;
     }[] = [];
 
-    attendanceRecords.forEach(record => {
+    asArray(attendanceRecords).forEach(record => {
       const cls = classes.find(c => c.id === record.classId);
       const teacher = teachers.find(t => t.id === record.submittedBy);
       const className = cls ? cls.name : 'Unknown Class';
       const teacherName = teacher ? teacher.name : 'Unknown Teacher';
+      const studentsForRecord = asArray(record?.students);
 
-      record.students.forEach(s => {
-        const student = students.find(std => std.id === s.studentId);
+      studentsForRecord.forEach(s => {
+        const student = students.find(std => std.id === s?.studentId);
         if (!student) return;
 
         logs.push({
@@ -546,7 +599,7 @@ export default function AdminDashboard({
               <button
                 type="button"
                 id="sidebar-tab-overview"
-                onClick={() => setActiveTab('overview')}
+                onClick={() => handleTabChange('overview')}
                 className={`w-full flex items-center gap-3 py-2.5 px-6 transition-all duration-150 cursor-pointer text-sm font-semibold ${
                   activeTab === 'overview' 
                     ? 'bg-indigo-50/70 text-indigo-700 border-l-4 border-indigo-600 pl-5' 
@@ -560,7 +613,7 @@ export default function AdminDashboard({
               <button
                 type="button"
                 id="sidebar-tab-students"
-                onClick={() => { setActiveTab('students'); setStudentPage(1); }}
+                onClick={() => handleTabChange('students')}
                 className={`w-full flex items-center gap-3 py-2.5 px-6 transition-all duration-150 cursor-pointer text-sm font-semibold ${
                   activeTab === 'students' 
                     ? 'bg-indigo-50/70 text-indigo-700 border-l-4 border-indigo-600 pl-5' 
@@ -574,7 +627,7 @@ export default function AdminDashboard({
               <button
                 type="button"
                 id="sidebar-tab-classes"
-                onClick={() => setActiveTab('classes')}
+                onClick={() => handleTabChange('classes')}
                 className={`w-full flex items-center gap-3 py-2.5 px-6 transition-all duration-150 cursor-pointer text-sm font-semibold ${
                   activeTab === 'classes' 
                     ? 'bg-indigo-50/70 text-indigo-700 border-l-4 border-indigo-600 pl-5' 
@@ -588,7 +641,7 @@ export default function AdminDashboard({
               <button
                 type="button"
                 id="sidebar-tab-teachers"
-                onClick={() => setActiveTab('teachers')}
+                onClick={() => handleTabChange('teachers')}
                 className={`w-full flex items-center gap-3 py-2.5 px-6 transition-all duration-150 cursor-pointer text-sm font-semibold ${
                   activeTab === 'teachers' 
                     ? 'bg-indigo-50/70 text-indigo-700 border-l-4 border-indigo-600 pl-5' 
@@ -602,7 +655,7 @@ export default function AdminDashboard({
               <button
                 type="button"
                 id="sidebar-tab-admins"
-                onClick={() => setActiveTab('admins')}
+                onClick={() => handleTabChange('admins')}
                 className={`w-full flex items-center gap-3 py-2.5 px-6 transition-all duration-150 cursor-pointer text-sm font-semibold ${
                   activeTab === 'admins' 
                     ? 'bg-indigo-50/70 text-indigo-700 border-l-4 border-indigo-600 pl-5' 
@@ -616,7 +669,7 @@ export default function AdminDashboard({
               <button
                 type="button"
                 id="sidebar-tab-attendance"
-                onClick={() => setActiveTab('attendance')}
+                onClick={() => handleTabChange('attendance')}
                 className={`w-full flex items-center gap-3 py-2.5 px-6 transition-all duration-150 cursor-pointer text-sm font-semibold ${
                   activeTab === 'attendance' 
                     ? 'bg-indigo-50/70 text-indigo-700 border-l-4 border-indigo-600 pl-5' 
@@ -630,7 +683,7 @@ export default function AdminDashboard({
               <button
                 type="button"
                 id="sidebar-tab-reports"
-                onClick={() => setActiveTab('reports')}
+                onClick={() => handleTabChange('reports')}
                 className={`w-full flex items-center gap-3 py-2.5 px-6 transition-all duration-150 cursor-pointer text-sm font-semibold ${
                   activeTab === 'reports' 
                     ? 'bg-indigo-50/70 text-indigo-700 border-l-4 border-indigo-600 pl-5' 
@@ -663,7 +716,7 @@ export default function AdminDashboard({
             {(['overview', 'students', 'classes', 'teachers', 'admins', 'attendance', 'reports'] as TabType[]).map(tab => (
               <button
                 key={tab}
-                onClick={() => { setActiveTab(tab); setStudentPage(1); }}
+                onClick={() => handleTabChange(tab)}
                 className={`py-1.5 px-3 rounded-full text-xs font-semibold whitespace-nowrap capitalize ${
                   activeTab === tab ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'
                 }`}
@@ -684,153 +737,17 @@ export default function AdminDashboard({
               
               {/* 1. OVERVIEW TAB */}
               {activeTab === 'overview' && (
-                <div id="overview-tab-view" className="space-y-6">
-                  <div className="flex flex-col gap-1.5">
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">System Overview</h2>
-                    <p className="text-sm text-slate-500">Real-time indicators across Springfield High classes and demographics</p>
-                  </div>
-
-                  {/* Summary Metric Cards */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                      <div className="space-y-1.5">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Students</p>
-                        <h3 className="text-2xl md:text-3xl font-extrabold text-slate-900">{totalStudents}</h3>
-                      </div>
-                      <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                        <Users className="w-6 h-6" />
-                      </div>
-                    </div>
-
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                      <div className="space-y-1.5">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Classes</p>
-                        <h3 className="text-2xl md:text-3xl font-extrabold text-slate-900">{totalClasses}</h3>
-                      </div>
-                      <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-                        <School className="w-6 h-6" />
-                      </div>
-                    </div>
-
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                      <div className="space-y-1.5">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Teachers</p>
-                        <h3 className="text-2xl md:text-3xl font-extrabold text-slate-900">{totalTeachers}</h3>
-                      </div>
-                      <div className="p-3 bg-violet-50 text-violet-600 rounded-xl">
-                        <UserCheck className="w-6 h-6" />
-                      </div>
-                    </div>
-
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                      <div className="space-y-1.5">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Avg Attendance</p>
-                        <h3 className="text-2xl md:text-3xl font-extrabold text-slate-900">{overallAttendanceRate}%</h3>
-                      </div>
-                      <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-                        <BarChart3 className="w-6 h-6" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Core Visual Grid */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Class Wise Attendance Rate Bar Chart */}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h4 className="text-sm font-bold text-slate-800">Class Attendance Performance</h4>
-                        <span className="text-[11px] text-indigo-600 bg-indigo-50 py-0.5 px-2 rounded-full font-semibold">Target: 95%</span>
-                      </div>
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={classAttendanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <XAxis dataKey="className" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                            <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                            <Tooltip contentStyle={{ borderRadius: '12px', borderColor: '#e2e8f0', fontSize: '12px' }} />
-                            <Bar dataKey="Attendance Rate (%)" fill="#4f46e5" radius={[6, 6, 0, 0]} barSize={32} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-
-                    {/* Attendance Demographics / Status Breakdown */}
-                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
-                      <h4 className="text-sm font-bold text-slate-800">Attendance State Breakdown</h4>
-                      {statusStats.length > 0 ? (
-                        <>
-                          <div className="h-44 flex items-center justify-center relative">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={statusStats}
-                                  innerRadius={55}
-                                  outerRadius={75}
-                                  paddingAngle={3}
-                                  dataKey="value"
-                                >
-                                  {statusStats.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                  ))}
-                                </Pie>
-                                <Tooltip formatter={(value) => [`${value} instances`, 'Total']} />
-                              </PieChart>
-                            </ResponsiveContainer>
-                            <div className="absolute flex flex-col items-center">
-                              <span className="text-2xl font-black text-slate-900">{overallAttendanceRate}%</span>
-                              <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Present Rate</span>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 pt-2">
-                            {statusStats.map((stat, i) => (
-                              <div key={i} className="flex items-center gap-2 text-xs">
-                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: stat.color }} />
-                                <span className="text-slate-500 font-medium">{stat.name}:</span>
-                                <span className="text-slate-800 font-bold ml-auto">{stat.value}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-xs py-8">
-                          <AlertCircle className="w-8 h-8 mb-2 stroke-1 text-slate-300" />
-                          No submissions recorded yet
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Recent submissions list */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-3.5 p-5">
-                    <h4 className="text-sm font-bold text-slate-800">Latest Submissions</h4>
-                    <div className="divide-y divide-slate-100">
-                      {attendanceRecords.slice(-3).reverse().map((rec, idx) => {
-                        const cls = classes.find(c => c.id === rec.classId);
-                        const teacher = teachers.find(t => t.id === rec.submittedBy);
-                        const presentCount = rec.students.filter(s => s.status === 'Present').length;
-                        return (
-                          <div key={idx} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
-                                {cls?.name.substring(0, 2) || 'CL'}
-                              </div>
-                              <div>
-                                <h5 className="text-xs font-bold text-slate-800">{cls?.name || 'Classroom'}</h5>
-                                <p className="text-[10px] text-slate-400">By {teacher?.name || 'Assigned Teacher'} • {new Date(rec.submittedAt).toLocaleDateString()}</p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-xs font-bold text-slate-800">{presentCount} / {rec.students.length} Present</span>
-                              <p className="text-[10px] text-emerald-500 font-bold">Submitted Successfully</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {attendanceRecords.length === 0 && (
-                        <p className="text-xs text-slate-400 text-center py-4">No attendance reports submitted today.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <OverviewPage
+                  totalStudents={totalStudents}
+                  totalClasses={totalClasses}
+                  totalTeachers={totalTeachers}
+                  overallAttendanceRate={overallAttendanceRate}
+                  classAttendanceData={classAttendanceData}
+                  statusStats={statusStats}
+                  attendanceRecords={attendanceRecords}
+                  classes={classes}
+                  teachers={teachers}
+                />
               )}
 
               {/* 2. STUDENTS TAB */}
@@ -1022,354 +939,54 @@ export default function AdminDashboard({
 
               {/* 3. CLASSES TAB */}
               {activeTab === 'classes' && (
-                <div id="classes-tab-view" className="space-y-6">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex flex-col gap-1.5">
-                      <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Manage Classes</h2>
-                      <p className="text-sm text-slate-500">Set up curriculum classes, allocate rooms, and assign primary instructors</p>
-                    </div>
-                    <button
-                      type="button"
-                      id="add-class-btn"
-                      onClick={() => {
-                        setEditingClass(null);
-                        setClassForm({ name: '', grade: '', room: '', teacherId: teachers[0]?.id || '' });
-                        setClassFormError(null);
-                        setIsClassModalOpen(true);
-                      }}
-                      className="inline-flex items-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer select-none"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create New Class
-                    </button>
-                  </div>
-
-                  {/* Search Filter for Classes */}
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center">
-                    <div className="relative flex-1">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                        <Search className="w-4 h-4" />
-                      </span>
-                      <input
-                        id="class-search-input"
-                        type="text"
-                        placeholder="Search by class name, grade, room number, or teacher name..."
-                        value={classSearch}
-                        onChange={(e) => setClassSearch(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500 text-slate-800 transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Class Bento Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {filteredClasses.map(cls => {
-                      const teacher = teachers.find(t => t.id === cls.teacherId);
-                      const classStudents = students.filter(s => s.classId === cls.id || s.classIds?.includes(cls.id));
-
-                      return (
-                        <div key={cls.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5 hover:shadow-md transition-shadow">
-                          {/* Card Header */}
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <span className="py-1 px-2.5 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-extrabold uppercase tracking-wider">
-                                Grade {cls.grade} • {cls.room}
-                              </span>
-                              <h3 className="text-base font-bold text-slate-900 mt-2">{cls.name}</h3>
-                            </div>
-                            <div className="flex gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditClass(cls)}
-                                className="p-1.5 hover:bg-slate-100 text-slate-600 hover:text-indigo-600 rounded-lg transition-colors cursor-pointer"
-                                title="Edit Class"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (confirm(`Deleting class ${cls.name} will unassign its students. Continue?`)) {
-                                    onDeleteClass(cls.id);
-                                  }
-                                }}
-                                className="p-1.5 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
-                                title="Delete Class"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Instructor Details */}
-                          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex items-center justify-between text-xs">
-                            <div className="space-y-0.5">
-                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Primary Instructor</p>
-                              <p className="font-bold text-slate-800">{teacher ? teacher.name : 'Unassigned Class'}</p>
-                            </div>
-                            {teacher && (
-                              <span className="py-0.5 px-2 bg-indigo-50 text-indigo-700 rounded-full text-[10px] font-bold">
-                                {teacher.subject}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Roster Summary */}
-                          <div className="space-y-2 text-xs">
-                            <div className="flex justify-between font-semibold text-slate-600">
-                              <span>Student Roster ({classStudents.length} enrolled)</span>
-                              <span>Ratio: {classStudents.length}/30</span>
-                            </div>
-                            {/* Simple visual bar */}
-                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${(classStudents.length / 30) * 100}%` }}></div>
-                            </div>
-                            {/* Mini faces or list */}
-                            {classStudents.length > 0 ? (
-                              <p className="text-[10px] text-slate-400 line-clamp-1">
-                                {classStudents.map(s => s.name).join(', ')}
-                              </p>
-                            ) : (
-                              <p className="text-[10px] text-amber-500 font-medium">Empty roster. Assign students under "Manage Students".</p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {filteredClasses.length === 0 && (
-                      <div className="col-span-2 py-12 bg-white rounded-2xl border border-slate-200 text-center text-slate-400 text-xs">
-                        <School className="w-10 h-10 mx-auto mb-2 stroke-1 text-slate-300" />
-                        No classes configured. Tap "Create New Class" to begin.
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <ClassesPage
+                  classes={classes}
+                  students={students}
+                  teachers={teachers}
+                  filteredClasses={filteredClasses}
+                  classSearch={classSearch}
+                  setClassSearch={setClassSearch}
+                  onDeleteClass={onDeleteClass}
+                  onOpenCreateClass={() => {
+                    setEditingClass(null);
+                    setClassForm({ name: '', grade: '', room: '', teacherId: teachers[0]?.id || '' });
+                    setClassFormError(null);
+                    setIsClassModalOpen(true);
+                  }}
+                  onOpenEditClass={handleOpenEditClass}
+                />
               )}
 
               {/* 4. TEACHERS TAB */}
               {activeTab === 'teachers' && (
-                <div id="teachers-tab-view" className="space-y-6">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex flex-col gap-1.5">
-                      <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Manage Teachers</h2>
-                      <p className="text-sm text-slate-500">Create teacher accounts that can sign in and take attendance afterward</p>
-                    </div>
-                    <button
-                      type="button"
-                      id="add-teacher-btn"
-                      onClick={() => {
-                        setEditingTeacher(null);
-                        setTeacherForm({ name: '', email: '', subject: '' });
-                        setTeacherFormError(null);
-                        setIsTeacherModalOpen(true);
-                      }}
-                      className="inline-flex items-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer select-none"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      Add Teacher
-                    </button>
-                  </div>
-
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                            <th className="py-4 px-6">Name</th>
-                            <th className="py-4 px-6">Email</th>
-                            <th className="py-4 px-6">Subject</th>
-                            <th className="py-4 px-6 text-right">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
-                          {teachers.map(teacher => (
-                            <tr key={teacher.id} className="hover:bg-slate-50/55 transition-colors">
-                              <td className="py-3.5 px-6 font-semibold text-slate-900">{teacher.name}</td>
-                              <td className="py-3.5 px-6 text-slate-500">{teacher.email}</td>
-                              <td className="py-3.5 px-6">
-                                <span className="py-1 px-2.5 bg-violet-50 text-violet-700 rounded-lg text-[11px] font-bold">
-                                  {teacher.subject}
-                                </span>
-                              </td>
-                              <td className="py-3.5 px-6 text-right space-x-1.5 whitespace-nowrap">
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditTeacher(teacher)}
-                                  className="p-1.5 hover:bg-slate-100 text-slate-600 hover:text-indigo-600 rounded-lg transition-colors cursor-pointer inline-flex"
-                                  title="Edit Teacher"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (confirm(`Are you sure you want to remove teacher ${teacher.name}?`)) {
-                                      onDeleteTeacher(teacher.id);
-                                    }
-                                  }}
-                                  className="p-1.5 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-lg transition-colors cursor-pointer inline-flex"
-                                  title="Delete Teacher"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                          {teachers.length === 0 && (
-                            <tr>
-                              <td colSpan={3} className="py-10 text-center text-slate-400 text-xs">
-                                <UserCheck className="w-8 h-8 mx-auto mb-2.5 stroke-1 text-slate-300" />
-                                No teachers registered yet.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
+                <TeachersPage
+                  teachers={teachers}
+                  onDeleteTeacher={onDeleteTeacher}
+                  onOpenCreateTeacher={() => {
+                    setEditingTeacher(null);
+                    setTeacherForm({ name: '', email: '', subject: '' });
+                    setTeacherFormError(null);
+                    setIsTeacherModalOpen(true);
+                  }}
+                  onOpenEditTeacher={handleOpenEditTeacher}
+                />
               )}
 
               {/* 5. ATTENDANCE LOG TAB */}
               {activeTab === 'attendance' && (
-                <div id="attendance-tab-view" className="space-y-6">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex flex-col gap-1.5">
-                      <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Attendance Ledger</h2>
-                      <p className="text-sm text-slate-500">Audit daily attendance submissions, filter entries, and download records</p>
-                    </div>
-                    
-                    <button
-                      type="button"
-                      id="export-attendance-btn"
-                      onClick={handleExportAttendance}
-                      className="inline-flex items-center gap-2 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer select-none"
-                    >
-                      <Download className="w-4 h-4" />
-                      Export to Excel (CSV)
-                    </button>
-                  </div>
-
-                  {/* Log Filter Suite */}
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                      <Filter className="w-4 h-4 text-slate-400" />
-                      Search & Filter Submissions
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      {/* Search Student Name */}
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                          <Search className="w-3.5 h-3.5" />
-                        </span>
-                        <input
-                          id="attendance-search-student"
-                          type="text"
-                          placeholder="Search student..."
-                          value={attendanceSearch}
-                          onChange={(e) => setAttendanceSearch(e.target.value)}
-                          className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 focus:outline-none focus:border-indigo-500 text-slate-800"
-                        />
-                      </div>
-
-                      {/* Class filter */}
-                      <div>
-                        <select
-                          id="attendance-class-dropdown"
-                          value={attendanceClassFilter}
-                          onChange={(e) => setAttendanceClassFilter(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500"
-                        >
-                          <option value="all">All Classes</option>
-                          {classes.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Date Filter */}
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
-                          <Calendar className="w-3.5 h-3.5" />
-                        </span>
-                        <input
-                          id="attendance-date-picker"
-                          type="date"
-                          value={attendanceDateFilter}
-                          onChange={(e) => setAttendanceDateFilter(e.target.value)}
-                          className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500"
-                        />
-                      </div>
-
-                      {/* Status Filter */}
-                      <div>
-                        <select
-                          id="attendance-status-dropdown"
-                          value={attendanceStatusFilter}
-                          onChange={(e) => setAttendanceStatusFilter(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500"
-                        >
-                          <option value="all">All Statuses</option>
-                          <option value="Present">Present</option>
-                          <option value="Sick">Sick</option>
-                          <option value="Excused">Excused</option>
-                          <option value="Absent">Absent</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Ledger Results */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                            <th className="py-4 px-6">Submission Date</th>
-                            <th className="py-4 px-6">Class Room</th>
-                            <th className="py-4 px-6">Student Name</th>
-                            <th className="py-4 px-6">Roll ID</th>
-                            <th className="py-4 px-6">Attendance Status</th>
-                            <th className="py-4 px-6">Registered By</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
-                          {filteredAttendanceLogs.map((log) => {
-                            let badgeStyle = '';
-                            if (log.status === 'Present') badgeStyle = 'bg-emerald-50 text-emerald-700';
-                            else if (log.status === 'Sick') badgeStyle = 'bg-amber-50 text-amber-700';
-                            else if (log.status === 'Excused') badgeStyle = 'bg-blue-50 text-blue-700';
-                            else if (log.status === 'Absent') badgeStyle = 'bg-red-50 text-red-700';
-
-                            return (
-                              <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="py-3 px-6 font-semibold text-slate-900">{log.date}</td>
-                                <td className="py-3 px-6 font-semibold">{log.className}</td>
-                                <td className="py-3 px-6 text-slate-800">{log.studentName}</td>
-                                <td className="py-3 px-6 font-mono text-slate-500">{log.rollNumber}</td>
-                                <td className="py-3 px-6">
-                                  <span className={`py-1 px-2.5 rounded-lg text-[11px] font-bold ${badgeStyle}`}>
-                                    {log.status}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-6 text-slate-500 font-medium">{log.submittedBy}</td>
-                              </tr>
-                            );
-                          })}
-                          {filteredAttendanceLogs.length === 0 && (
-                            <tr>
-                              <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
-                                <FileSpreadsheet className="w-10 h-10 mx-auto mb-2.5 stroke-1 text-slate-300" />
-                                No matching logs found. Adjust your date filters or class settings.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
+                <AttendancePage
+                  classes={classes}
+                  filteredAttendanceLogs={filteredAttendanceLogs}
+                  attendanceSearch={attendanceSearch}
+                  attendanceClassFilter={attendanceClassFilter}
+                  attendanceDateFilter={attendanceDateFilter}
+                  attendanceStatusFilter={attendanceStatusFilter}
+                  setAttendanceSearch={setAttendanceSearch}
+                  setAttendanceClassFilter={setAttendanceClassFilter}
+                  setAttendanceDateFilter={setAttendanceDateFilter}
+                  setAttendanceStatusFilter={setAttendanceStatusFilter}
+                  onExportAttendance={handleExportAttendance}
+                />
               )}
 
               {/* 4. ADMIN USERS TAB */}
