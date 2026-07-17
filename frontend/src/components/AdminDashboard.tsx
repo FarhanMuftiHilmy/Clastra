@@ -135,8 +135,18 @@ export default function AdminDashboard({
   const [studentClassFilter, setStudentClassFilter] = useState('all');
   const [studentPage, setStudentPage] = useState(1);
   const studentsPerPage = 8;
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [bulkAssignClassId, setBulkAssignClassId] = useState<string>('');
+  const [bulkAssignError, setBulkAssignError] = useState<string | null>(null);
+  const [bulkAssignSuccess, setBulkAssignSuccess] = useState<string | null>(null);
 
   const [classSearch, setClassSearch] = useState('');
+
+  useEffect(() => {
+    if (!bulkAssignClassId && classes.length > 0) {
+      setBulkAssignClassId(classes[0].id);
+    }
+  }, [classes, bulkAssignClassId]);
 
   const [attendanceClassFilter, setAttendanceClassFilter] = useState('all');
   const [attendanceDateFilter, setAttendanceDateFilter] = useState('');
@@ -815,12 +825,120 @@ export default function AdminDashboard({
                     </div>
                   </div>
 
+                  {/* Bulk assign controls */}
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bulk assign selected students</p>
+                      <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div className="relative flex-1 sm:w-72">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                            <School className="w-4 h-4" />
+                          </span>
+                          <select
+                            id="bulk-assign-class"
+                            value={bulkAssignClassId}
+                            onChange={(e) => setBulkAssignClassId(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 appearance-none focus:outline-none focus:border-indigo-500"
+                          >
+                            {classes.map(c => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setBulkAssignError(null);
+                            setBulkAssignSuccess(null);
+                            if (selectedStudentIds.length === 0) {
+                              setBulkAssignError('Select at least one student first.');
+                              return;
+                            }
+                            if (!bulkAssignClassId) {
+                              setBulkAssignError('Choose a class before assigning.');
+                              return;
+                            }
+                            const className = classes.find(c => c.id === bulkAssignClassId)?.name || 'the selected class';
+                            try {
+                              await Promise.all(selectedStudentIds.map(id => onAssignStudentToClass(id, bulkAssignClassId)));
+                              setSelectedStudentIds([]);
+                              setBulkAssignSuccess(`Assigned ${selectedStudentIds.length} student(s) to ${className}.`);
+                            } catch (error: any) {
+                              setBulkAssignError(error?.message || 'Bulk assignment failed.');
+                            }
+                          }}
+                          className="inline-flex items-center justify-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+                        >
+                          Assign Selected
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setBulkAssignError(null);
+                            setBulkAssignSuccess(null);
+                            if (selectedStudentIds.length === 0) {
+                              setBulkAssignError('Select at least one student first.');
+                              return;
+                            }
+                            if (!bulkAssignClassId) {
+                              setBulkAssignError('Choose a class before unassigning.');
+                              return;
+                            }
+                            const className = classes.find(c => c.id === bulkAssignClassId)?.name || 'the selected class';
+                            if (!confirm(`Unassign ${selectedStudentIds.length} selected student(s) from ${className}?`)) {
+                              return;
+                            }
+                            try {
+                              await Promise.all(selectedStudentIds.map(id => onRemoveStudentFromClass(id, bulkAssignClassId)));
+                              setSelectedStudentIds([]);
+                              setBulkAssignSuccess(`Unassigned ${selectedStudentIds.length} student(s) from ${className}.`);
+                            } catch (error: any) {
+                              setBulkAssignError(error?.message || 'Bulk unassignment failed.');
+                            }
+                          }}
+                          className="inline-flex items-center justify-center gap-2 py-2.5 px-4 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
+                        >
+                          Unassign Selected
+                        </button>
+                      </div>
+                      {bulkAssignError && (
+                        <p className="mt-2 text-xs text-red-600">{bulkAssignError}</p>
+                      )}
+                      {bulkAssignSuccess && (
+                        <p className="mt-2 text-xs text-emerald-600">{bulkAssignSuccess}</p>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {selectedStudentIds.length > 0 ? (
+                        <span>{selectedStudentIds.length} student(s) selected</span>
+                      ) : (
+                        <span>No students selected</span>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Student Table */}
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                            <th className="py-4 px-4">
+                              <input
+                                type="checkbox"
+                                aria-label="Select all students"
+                                checked={selectedStudentIds.length > 0 && paginatedStudents.every(student => selectedStudentIds.includes(student.id))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const pageIds = paginatedStudents.map(student => student.id);
+                                    setSelectedStudentIds(prev => Array.from(new Set([...prev, ...pageIds])));
+                                  } else {
+                                    setSelectedStudentIds(prev => prev.filter(id => !paginatedStudents.some(student => student.id === id)));
+                                  }
+                                }}
+                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                            </th>
                             <th className="py-4 px-6">Name</th>
                             <th className="py-4 px-6">Roll Number</th>
                             <th className="py-4 px-6">Email</th>
@@ -835,6 +953,21 @@ export default function AdminDashboard({
                             const studentClasses = classes.filter(c => allClassIds.includes(c.id));
                             return (
                               <tr key={student.id} className="hover:bg-slate-50/55 transition-colors">
+                                <td className="py-3.5 px-4">
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Select ${student.name}`}
+                                    checked={selectedStudentIds.includes(student.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedStudentIds(prev => Array.from(new Set([...prev, student.id])));
+                                      } else {
+                                        setSelectedStudentIds(prev => prev.filter(id => id !== student.id));
+                                      }
+                                    }}
+                                    className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                  />
+                                </td>
                                 <td className="py-3.5 px-6 font-semibold text-slate-900">{student.name}</td>
                                 <td className="py-3.5 px-6 font-mono text-slate-500">{student.rollNumber}</td>
                                 <td className="py-3.5 px-6 text-slate-500">{student.email}</td>
