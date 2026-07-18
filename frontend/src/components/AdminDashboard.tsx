@@ -1285,7 +1285,7 @@ export default function AdminDashboard({
                         </div>
                         <div className="flex justify-between pb-1">
                           <span>{t('admin.auditSchoolCapacityRatio')}</span>
-                          <span className="font-bold text-indigo-600">{Math.round((students.length / 120) * 100)}% Capacity</span>
+                          <span className="font-bold text-indigo-600">{t('admin.auditCapacityPercent', { percentage: Math.round((students.length / 120) * 100) })}</span>
                         </div>
                       </div>
                       <div className="pt-2">
