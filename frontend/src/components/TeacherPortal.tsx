@@ -11,7 +11,7 @@ import {
   Users, Check, Sparkles, ArrowLeft, LogOut, ClipboardCheck
 } from 'lucide-react';
 import { useLocale } from '../LocaleContext';
-import { t } from '../i18n';
+import { t, supportedLocales } from '../i18n';
 import { Teacher, Class, Student, AttendanceStatus, AttendanceRecord } from '../types';
 
 interface TeacherPortalProps {
@@ -31,15 +31,18 @@ export default function TeacherPortal({
   onSubmitAttendance,
   onLogout,
 }: TeacherPortalProps) {
-  useLocale();
+  const { locale, setLocale: setLocaleState, localeJustChanged } = useLocale();
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [attendanceDate, setAttendanceDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const todayDate = new Date().toISOString().split('T')[0];
   const navigate = useNavigate();
   const { classId: routeClassId } = useParams<{ classId?: string }>();
 
   const [markingRoster, setMarkingRoster] = useState<Record<string, AttendanceStatus>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessScreen, setShowSuccessScreen] = useState(false);
+  const [isViewingPastRecord, setIsViewingPastRecord] = useState(false);
+  const [dateWarning, setDateWarning] = useState('');
 
   const assignedClasses = classes.filter(c => c.teacherId === teacher.id);
 
@@ -47,7 +50,18 @@ export default function TeacherPortal({
     ? students.filter(s => s.classId === selectedClass.id || s.classIds?.includes(selectedClass.id))
     : [];
 
-  const handleOpenClass = useCallback((cls: Class, shouldNavigate = true) => {
+  const classDates = selectedClass
+    ? Array.from(new Set(
+        attendanceRecords
+          .filter(r => r.classId === selectedClass.id)
+          .map(r => r.date)
+      )).sort()
+    : [];
+
+  const earliestDateWithData = classDates.length > 0 ? classDates[0] : todayDate;
+
+
+  const handleOpenClass = useCallback((cls: Class, shouldNavigate = true, dateArg?: string) => {
     if (shouldNavigate) {
       navigate(`/teacher/class/${cls.id}`);
     }
@@ -55,8 +69,10 @@ export default function TeacherPortal({
     setSelectedClass(cls);
     setShowSuccessScreen(false);
 
+    const dateToCheck = dateArg ?? attendanceDate;
+
     const existingRecord = attendanceRecords.find(
-      r => r.classId === cls.id && r.date === attendanceDate
+      r => r.classId === cls.id && r.date === dateToCheck
     );
 
     const initialRoster: Record<string, AttendanceStatus> = {};
@@ -72,7 +88,18 @@ export default function TeacherPortal({
     });
 
     setMarkingRoster(initialRoster);
+    setIsViewingPastRecord(!!existingRecord && existingRecord.date < todayDate);
   }, [attendanceDate, attendanceRecords, navigate, students]);
+
+  useEffect(() => {
+    if (!selectedClass) return;
+
+    if (attendanceDate < earliestDateWithData) {
+      setAttendanceDate(earliestDateWithData);
+      setIsViewingPastRecord(earliestDateWithData < todayDate);
+      handleOpenClass(selectedClass, true, earliestDateWithData);
+    }
+  }, [selectedClass, earliestDateWithData]);
 
   const handleMarkAllPresent = () => {
     const updated = { ...markingRoster };
@@ -110,13 +137,14 @@ export default function TeacherPortal({
     if (routeClassId) {
       const routeClass = assignedClasses.find(c => c.id === routeClassId) || classes.find(c => c.id === routeClassId);
       if (routeClass && routeClass.id !== selectedClass?.id) {
-        handleOpenClass(routeClass, false);
+        setAttendanceDate(todayDate);
+        handleOpenClass(routeClass, false, todayDate);
       }
     } else if (selectedClass) {
       setSelectedClass(null);
       setShowSuccessScreen(false);
     }
-  }, [routeClassId, assignedClasses, classes, selectedClass, handleOpenClass]);
+  }, [routeClassId, assignedClasses, classes, selectedClass, todayDate, handleOpenClass]);
 
   return (
     <div id="teacher-mobile-portal" className="h-full bg-slate-50 flex flex-col font-sans select-none relative">
@@ -135,14 +163,33 @@ export default function TeacherPortal({
                 <h3 className="text-lg font-black text-slate-800 leading-tight">{t('teacher.greeting', { name: teacher.name.split(' ')[0] })}</h3>
                 <p className="text-[11px] text-slate-500 font-medium">{t('teacher.instructorOf', { subject: teacher.subject })}</p>
               </div>
-              <button
-                type="button"
-                onClick={onLogout}
-                className="p-2 bg-slate-200 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-full transition-colors cursor-pointer"
-                title={t('teacher.logOut')}
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700 text-xs">
+                  <span className="font-semibold text-slate-500">{t('common.languageLabel')}:</span>
+                  <select
+                    id="locale-select-teacher"
+                    value={locale}
+                    onChange={(e) => setLocaleState(e.target.value as any)}
+                    className="bg-transparent outline-none text-slate-800 text-xs font-semibold"
+                  >
+                    {supportedLocales.map(localeOption => (
+                      <option key={localeOption} value={localeOption}>
+                        {localeOption === 'en' ? t('common.languageEnglish') : t('common.languageIndonesian')}
+                      </option>
+                    ))}
+                  </select>
+                  {localeJustChanged && <span className="ml-2 text-xs text-emerald-600 font-semibold">{t('admin.languageChanged')}</span>}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="p-2 bg-slate-200 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-full transition-colors cursor-pointer"
+                  title={t('teacher.logOut')}
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <div className="bg-gradient-to-tr from-indigo-600 to-violet-500 text-white rounded-2xl p-4 shadow-md space-y-2 relative overflow-hidden">
@@ -298,25 +345,52 @@ export default function TeacherPortal({
             </div>
 
             <div className="bg-white px-4 py-2.5 border-b border-slate-200/60 flex items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                <input
-                  id="teacher-datepicker"
-                  type="date"
-                  value={attendanceDate}
-                  onChange={(e) => {
-                    setAttendanceDate(e.target.value);
-                    handleOpenClass(selectedClass as Class);
-                  }}
-                  className="bg-transparent text-[11px] font-bold text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                />
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <input
+                      id="teacher-datepicker"
+                      type="date"
+                      value={attendanceDate}
+                      min={earliestDateWithData}
+                      max={todayDate}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v > todayDate) return;
+
+                        if (v < todayDate) {
+                          const hasRecord = selectedClass
+                            ? attendanceRecords.some(r => r.classId === selectedClass.id && r.date === v)
+                            : false;
+
+                          if (!hasRecord) {
+                            setDateWarning(t('admin.noAttendanceData'));
+                            setTimeout(() => setDateWarning(''), 3000);
+                            return;
+                          }
+                          setIsViewingPastRecord(true);
+                        } else {
+                          setIsViewingPastRecord(false);
+                        }
+
+                        setAttendanceDate(v);
+                        handleOpenClass(selectedClass as Class, true, v);
+                      }}
+                      className="bg-transparent text-[11px] font-bold text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    />
+                  </div>
+
+                  {dateWarning && (
+                    <div className="text-[11px] text-amber-600 font-medium ml-2">{dateWarning}</div>
+                  )}
               </div>
 
               <button
                 type="button"
                 id="mark-all-present-btn"
                 onClick={handleMarkAllPresent}
-                className="py-1 px-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-full text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                disabled={isViewingPastRecord}
+                className={`py-1 px-2.5 rounded-full text-[10px] font-bold flex items-center gap-1 transition-colors ${isViewingPastRecord ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 cursor-pointer'}`}
               >
                 <Users className="w-3 h-3" />
                 {t('teacher.markAllPresent')}
@@ -374,8 +448,9 @@ export default function TeacherPortal({
                           <button
                             key={status}
                             type="button"
-                            onClick={() => handleUpdateStatus(student.id, status)}
-                            className={`py-1.5 rounded-xl border text-[10px] font-bold text-center transition-all cursor-pointer ${activeBg}`}
+                            onClick={() => !isViewingPastRecord && handleUpdateStatus(student.id, status)}
+                            disabled={isViewingPastRecord}
+                            className={`py-1.5 rounded-xl border text-[10px] font-bold text-center transition-all ${isViewingPastRecord ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'} ${activeBg}`}
                           >
                             {statusLabel}
                           </button>
@@ -404,7 +479,7 @@ export default function TeacherPortal({
               <button
                 type="button"
                 id="submit-attendance-btn"
-                disabled={isSubmitting || activeClassStudents.length === 0}
+                disabled={isSubmitting || activeClassStudents.length === 0 || isViewingPastRecord}
                 onClick={handleSubmit}
                 className="w-full flex items-center justify-center py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800/60 text-white rounded-xl font-bold text-xs shadow-md active:scale-[0.99] transition-all cursor-pointer"
               >
