@@ -1232,7 +1232,7 @@ export default function AdminDashboard({
                             <XAxis dataKey="className" tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ borderRadius: '12px', borderColor: '#e2e8f0', fontSize: '12px' }} />
-                            <Bar dataKey="studentCount" name={t('admin.studentCount')} fill="#818cf8" radius={[4, 4, 0, 0]} barSize={24} />
+                            <Bar dataKey="Student Count" name={t('admin.studentCount')} fill="#818cf8" radius={[4, 4, 0, 0]} barSize={24} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
