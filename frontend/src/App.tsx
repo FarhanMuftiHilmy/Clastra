@@ -11,11 +11,15 @@ import AuthScreen from './components/AuthScreen';
 import ActivationScreen from './components/ActivationScreen';
 import AdminDashboard from './components/AdminDashboard';
 import TeacherPortal from './components/TeacherPortal';
+import { useLocale } from './LocaleContext';
+import { t } from './i18n';
+import Toast from './components/Toast';
 // DeviceFrame removed for responsive web layout
 import { Sparkles, ArrowLeftRight, UserCheck, Shield, BookOpen } from 'lucide-react';
 import { studentService, classService, teacherService, attendanceService, adminService, authService } from './core/container';
 
 export default function App() {
+  const { localeJustChanged } = useLocale();
   // --- STATE ---
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
@@ -361,7 +365,6 @@ export default function App() {
       }
       return;
     }
-
     const isTeacherRoute = location.pathname.startsWith('/teacher');
     const isAdminRoute = location.pathname.startsWith('/admin');
 
@@ -381,7 +384,7 @@ export default function App() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-800">
         <div className="text-center space-y-4">
           <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-xs font-bold text-slate-500 tracking-wider">Loading School Ledger State...</p>
+          <p className="text-xs font-bold text-slate-500 tracking-wider">{t('common.loadingState')}</p>
         </div>
       </div>
     );
@@ -393,8 +396,8 @@ export default function App() {
       <ActivationScreen
         activationToken={activationToken}
         onActivate={isAdminActivation ? handleActivateAdmin : handleActivateTeacher}
-        title={isAdminActivation ? 'Activate Your Admin Account' : 'Activate Your Teacher Account'}
-        description={isAdminActivation ? 'Set a secure password to finish admin account activation.' : 'Set a secure password to finish account activation.'}
+        title={isAdminActivation ? t('auth.activateAdminTitle') : t('auth.activateTeacherTitle')}
+        description={isAdminActivation ? t('auth.activateAdminDescription') : t('auth.activateTeacherDescription')}
         onCancel={() => {
           setIsActivationMode(false);
           setActivationType(null);
@@ -413,7 +416,7 @@ export default function App() {
             teachers.find(t =>
               t.id === currentUser?.id ||
               (t.email && currentUser?.email && t.email.toLowerCase() === currentUser.email.toLowerCase())
-            ) || { id: currentUser?.id ?? 'teacher', name: currentUser?.name ?? 'Teacher', email: currentUser?.email ?? '', subject: 'General' }
+            ) || { id: currentUser?.id ?? 'teacher', name: currentUser?.name ?? t('common.defaultTeacherName'), email: currentUser?.email ?? '', subject: 'General' }
           }
           classes={classes}
           students={students}
@@ -450,13 +453,14 @@ export default function App() {
       onUpdateAdmin={handleUpdateAdmin}
       onDeleteAdmin={handleDeleteAdmin}
       onLogout={handleLogout}
-      adminName={currentUser?.name ?? 'Admin'}
+      adminName={currentUser?.name ?? t('common.defaultAdminName')}
       currentAdminRole={currentUser?.adminRole}
     />
   );
 
   return (
     <div className="relative min-h-screen bg-slate-50">
+      {localeJustChanged && <Toast message={t('admin.languageChanged')} />}
       {/* Floating Developer Sandbox Controller */}
       {/* <div 
         id="sandbox-developer-hub" 
@@ -464,11 +468,11 @@ export default function App() {
       >
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
-          <span className="text-[10px] font-extrabold text-slate-700 tracking-wider uppercase">Sandbox Quick Controls</span>
+          <span className="text-[10px] font-extrabold text-slate-700 tracking-wider uppercase">{t('common.sandboxControlsTitle')}</span>
         </div>
         
         <p className="text-[10px] text-slate-500 font-medium leading-relaxed mb-3">
-          Simulate dual role-based synchronization instantly: Take roll as Teacher, switch to Admin to see updated reports!
+          {t('common.sandboxDescription')}
         </p>
 
         <div className="grid grid-cols-2 gap-2">
@@ -483,7 +487,7 @@ export default function App() {
             }`}
           >
             <Shield className="w-3 h-3" />
-            As Admin
+            {t('common.asAdmin')}
           </button>
           
           <button
@@ -497,7 +501,7 @@ export default function App() {
             }`}
           >
             <UserCheck className="w-3 h-3" />
-            As Teacher
+            {t('common.asTeacher')}
           </button>
         </div>
       </div> */}

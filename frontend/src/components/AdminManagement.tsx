@@ -10,6 +10,7 @@ import {
   Shield, Clock
 } from 'lucide-react';
 import { Admin } from '../types';
+import { t } from '../i18n';
 
 interface AdminManagementProps {
   admins: Admin[];
@@ -87,12 +88,12 @@ export default function AdminManagement({
     try {
       // Validation
       if (!adminForm.name.trim()) {
-        setError('Name is required');
+        setError(t('admin.errorAdminNameRequired'));
         setLoading(false);
         return;
       }
       if (!adminForm.email.trim()) {
-        setError('Email is required');
+        setError(t('admin.errorAdminEmailRequired'));
         setLoading(false);
         return;
       }
@@ -107,7 +108,7 @@ export default function AdminManagement({
           createdAt: editingAdmin.createdAt,
           lastLogin: editingAdmin.lastLogin,
         });
-        setSuccessMessage('Admin updated successfully!');
+        setSuccessMessage(t('admin.successAdminUpdated'));
       } else {
         await onAddAdmin({
           name: adminForm.name,
@@ -115,7 +116,7 @@ export default function AdminManagement({
           role: adminForm.role,
           isActive: false,
         });
-        setSuccessMessage('Admin invitation sent! They will receive an activation email.');
+        setSuccessMessage(t('admin.successAdminInvitationSent'));
       }
 
       setTimeout(() => {
@@ -123,24 +124,24 @@ export default function AdminManagement({
         handleCloseModal();
       }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Failed to save admin');
+      setError(err.message || t('admin.errorAdminSaveFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteAdmin = async (adminId: string) => {
-    if (!confirm('Are you sure you want to delete this admin?')) {
+    if (!confirm(t('admin.confirmDeleteAdmin'))) {
       return;
     }
 
     setLoading(true);
     try {
       await onDeleteAdmin(adminId);
-      setSuccessMessage('Admin deleted successfully!');
+      setSuccessMessage(t('admin.successAdminDeleted'));
       setTimeout(() => setSuccessMessage(null), 2000);
     } catch (err: any) {
-      setError(err.message || 'Failed to delete admin');
+      setError(err.message || t('admin.errorAdminDeleteFailed'));
     } finally {
       setLoading(false);
     }
@@ -156,7 +157,7 @@ export default function AdminManagement({
   };
 
   const formatDateTime = (dateString: string | null | undefined) => {
-    if (!dateString) return 'Never';
+    if (!dateString) return t('admin.never');
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -177,8 +178,8 @@ export default function AdminManagement({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Admin Users</h2>
-          <p className="text-gray-600 text-sm">Manage system administrators</p>
+          <h2 className="text-2xl font-bold text-gray-900">{t('admin.manageAdminsTitle')}</h2>
+          <p className="text-gray-600 text-sm">{t('admin.manageAdminsDescription')}</p>
         </div>
         {hasAdminControls ? (
           <button
@@ -186,11 +187,11 @@ export default function AdminManagement({
             className="inline-flex items-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer select-none"
           >
             <Plus size={20} />
-            Add Admin
+            {t('admin.addAdminButton')}
           </button>
         ) : (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            Limited admins cannot create or modify admin users.
+            {t('admin.limitedAdminNote')}
           </div>
         )}
       </div>
@@ -213,9 +214,9 @@ export default function AdminManagement({
       {/* Search */}
       <div className="flex items-center gap-3 bg-white px-4 py-3 rounded-lg border border-gray-200">
         <Search size={20} className="text-gray-400" />
-        <input
+            <input
           type="text"
-          placeholder="Search by name or email..."
+          placeholder={t('admin.searchAdminsPlaceholder')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="flex-1 outline-none text-gray-900 placeholder-gray-500"
@@ -226,7 +227,7 @@ export default function AdminManagement({
       <div className="flex-1 overflow-y-auto bg-white rounded-lg border border-gray-200">
         {filteredAdmins.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-gray-500">
-            <p>No admins found</p>
+            <p>{t('admin.noAdminsFound')}</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
@@ -243,7 +244,7 @@ export default function AdminManagement({
                             : 'bg-blue-100 text-blue-700'
                         }`}
                       >
-                        {admin.role === 'super' ? '⭐ Super Admin' : 'Limited Admin'}
+                        {admin.role === 'super' ? t('admin.roleBadgeSuper') : t('admin.roleBadgeLimited')}
                       </span>
                       <span
                         className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -252,17 +253,17 @@ export default function AdminManagement({
                             : 'bg-yellow-100 text-yellow-700'
                         }`}
                       >
-                        {admin.isActive ? 'Active' : 'Pending'}
+                        {admin.isActive ? t('admin.statusActive') : t('admin.statusPending')}
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 mb-2">{admin.email}</p>
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                       <div className="flex items-center gap-1">
                         <Clock size={14} />
-                        Created: {formatDate(admin.createdAt)}
+                        {t('admin.createdLabel')}: {formatDate(admin.createdAt)}
                       </div>
                       <div className="flex items-center gap-1">
-                        Last Login: {formatDateTime(admin.lastLogin)}
+                        {t('admin.lastLoginLabel')}: {formatDateTime(admin.lastLogin)}
                       </div>
                     </div>
                   </div>
@@ -272,20 +273,20 @@ export default function AdminManagement({
                         <button
                           onClick={() => handleOpenModal(admin)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Edit admin"
+                          title={t('admin.editAdminTitle')}
                         >
                           <Edit2 size={18} />
                         </button>
                         <button
                           onClick={() => handleDeleteAdmin(admin.id)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete admin"
+                          title={t('admin.deleteAdminTitle')}
                         >
                           <Trash2 size={18} />
                         </button>
                       </>
                     ) : (
-                      <span className="text-xs text-slate-500">Read-only access</span>
+                      <span className="text-xs text-slate-500">{t('admin.readOnlyAccess')}</span>
                     )}
                   </div>
                 </div>
@@ -312,7 +313,7 @@ export default function AdminManagement({
             >
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">
-                  {editingAdmin ? 'Edit Admin' : 'Add New Admin'}
+                  {editingAdmin ? t('admin.editAdminTitle') : t('admin.addAdminButton')}
                 </h3>
                 <button
                   onClick={handleCloseModal}
@@ -332,33 +333,33 @@ export default function AdminManagement({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Name
+                    {t('admin.adminFormNameLabel')}
                   </label>
                   <input
                     type="text"
                     value={adminForm.name}
                     onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })}
-                    placeholder="Admin name"
+                    placeholder={t('admin.adminNamePlaceholder')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email
+                    {t('admin.adminFormEmailLabel')}
                   </label>
                   <input
                     type="email"
                     value={adminForm.email}
                     onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })}
-                    placeholder="admin@school.edu"
+                    placeholder={t('admin.adminEmailPlaceholder')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Role
+                    {t('admin.adminFormRoleLabel')}
                   </label>
                   <select
                     value={adminForm.role}
@@ -370,13 +371,13 @@ export default function AdminManagement({
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="limited">Limited Admin</option>
-                    <option value="super">Super Admin</option>
+                    <option value="limited">{t('admin.roleBadgeLimited')}</option>
+                    <option value="super">{t('admin.roleBadgeSuper')}</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-2">
                     {adminForm.role === 'super'
-                      ? 'Super admins have full system access'
-                      : 'Limited admins have restricted access'}
+                      ? t('admin.superAdminNote')
+                      : t('admin.limitedAdminNote')}
                   </p>
                 </div>
               </div>
@@ -386,14 +387,14 @@ export default function AdminManagement({
                   onClick={handleCloseModal}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium"
                 >
-                  Cancel
+                  {t('admin.cancel')}
                 </button>
                 <button
                   onClick={handleSaveAdmin}
                   disabled={loading}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
                 >
-                  {loading ? 'Saving...' : editingAdmin ? 'Update' : 'Create'}
+                  {loading ? t('admin.saving') : editingAdmin ? t('admin.update') : t('admin.create')}
                 </button>
               </div>
             </motion.div>

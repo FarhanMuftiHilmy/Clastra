@@ -1,6 +1,7 @@
 import React from 'react';
 import { School, Search, Plus, Edit2, Trash2 } from 'lucide-react';
 import { Class, Student, Teacher } from '../../types';
+import { t } from '../../i18n';
 
 interface ClassesPageProps {
   classes: Class[];
@@ -29,8 +30,8 @@ export default function ClassesPage({
     <div id="classes-tab-view" className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-1.5">
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Manage Classes</h2>
-          <p className="text-sm text-slate-500">Set up curriculum classes, allocate rooms, and assign primary instructors</p>
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{t('admin.manageClassesTitle')}</h2>
+          <p className="text-sm text-slate-500">{t('admin.manageClassesDescription')}</p>
         </div>
         <button
           type="button"
@@ -39,7 +40,7 @@ export default function ClassesPage({
           className="inline-flex items-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer select-none"
         >
           <Plus className="w-4 h-4" />
-          Create New Class
+          {t('admin.createClassButton')}
         </button>
       </div>
 
@@ -51,7 +52,7 @@ export default function ClassesPage({
           <input
             id="class-search-input"
             type="text"
-            placeholder="Search by class name, grade, room number, or teacher name..."
+            placeholder={t('admin.classSearchPlaceholder')}
             value={classSearch}
             onChange={(e) => setClassSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500 text-slate-800 transition-colors"
@@ -69,7 +70,7 @@ export default function ClassesPage({
               <div className="flex justify-between items-start">
                 <div>
                   <span className="py-1 px-2.5 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-extrabold uppercase tracking-wider">
-                    Grade {cls.grade} • {cls.room}
+                    {t('admin.classGradeLabel')} {cls.grade} • {cls.room}
                   </span>
                   <h3 className="text-base font-bold text-slate-900 mt-2">{cls.name}</h3>
                 </div>
@@ -78,19 +79,19 @@ export default function ClassesPage({
                     type="button"
                     onClick={() => onOpenEditClass(cls)}
                     className="p-1.5 hover:bg-slate-100 text-slate-600 hover:text-indigo-600 rounded-lg transition-colors cursor-pointer"
-                    title="Edit Class"
+                    title={t('admin.classEditTitle')}
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm(`Deleting class ${cls.name} will unassign its students. Continue?`)) {
+                      if (confirm(t('admin.classDeleteConfirm', { className: cls.name }))) {
                         onDeleteClass(cls.id);
                       }
                     }}
                     className="p-1.5 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
-                    title="Delete Class"
+                    title={t('admin.classDeleteTitle')}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -99,8 +100,8 @@ export default function ClassesPage({
 
               <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex items-center justify-between text-xs">
                 <div className="space-y-0.5">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Primary Instructor</p>
-                  <p className="font-bold text-slate-800">{teacher ? teacher.name : 'Unassigned Class'}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t('admin.classPrimaryInstructorLabel')}</p>
+                  <p className="font-bold text-slate-800">{teacher ? teacher.name : t('admin.classUnassignedTitle')}</p>
                 </div>
                 {teacher && (
                   <span className="py-0.5 px-2 bg-indigo-50 text-indigo-700 rounded-full text-[10px] font-bold">
@@ -111,8 +112,8 @@ export default function ClassesPage({
 
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between font-semibold text-slate-600">
-                  <span>Student Roster ({classStudents.length} enrolled)</span>
-                  <span>Ratio: {classStudents.length}/30</span>
+                  <span>{t('admin.classStudentRosterLabel')} ({classStudents.length} enrolled)</span>
+                  <span>{t('admin.classRatioLabel')} {classStudents.length}/30</span>
                 </div>
                 <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${(classStudents.length / 30) * 100}%` }}></div>
@@ -122,7 +123,7 @@ export default function ClassesPage({
                     {classStudents.map(s => s.name).join(', ')}
                   </p>
                 ) : (
-                  <p className="text-[10px] text-amber-500 font-medium">Empty roster. Assign students under "Manage Students".</p>
+                  <p className="text-[10px] text-amber-500 font-medium">{t('admin.classEmptyRosterText')}</p>
                 )}
               </div>
             </div>
@@ -131,7 +132,7 @@ export default function ClassesPage({
         {filteredClasses.length === 0 && (
           <div className="col-span-2 py-12 bg-white rounded-2xl border border-slate-200 text-center text-slate-400 text-xs">
             <School className="w-10 h-10 mx-auto mb-2 stroke-1 text-slate-300" />
-            No classes configured. Tap "Create New Class" to begin.
+            {t('admin.classNoConfigured')}
           </div>
         )}
       </div>

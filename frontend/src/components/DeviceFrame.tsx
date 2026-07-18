@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { t } from '../i18n';
 import { Smartphone, Wifi, Battery, Signal } from 'lucide-react';
 
 interface DeviceFrameProps {
@@ -11,7 +12,7 @@ interface DeviceFrameProps {
   title?: string;
 }
 
-export default function DeviceFrame({ children, title = "School Portal" }: DeviceFrameProps) {
+export default function DeviceFrame({ children, title }: DeviceFrameProps) {
   // Get current local time formatted for a phone status bar (HH:MM)
   const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -52,7 +53,7 @@ export default function DeviceFrame({ children, title = "School Portal" }: Devic
       </div>
       
       <p className="text-xs text-slate-500 mt-3 font-mono text-center">
-        Simulated Teacher Mobile Viewport
+        {t('common.deviceSubtitle')}
       </p>
     </div>
   );

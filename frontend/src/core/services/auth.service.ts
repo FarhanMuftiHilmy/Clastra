@@ -6,6 +6,7 @@
 import { CurrentUser, UserRole } from '../../types';
 import { ITeacherRepository } from '../repositories/interfaces';
 import { HttpClient } from '../repositories/http.client';
+import { t } from '../../i18n';
 
 const STORAGE_KEY = 'sms_current_user';
 
@@ -39,7 +40,7 @@ export class AuthService {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionUser));
       return sessionUser;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to sign in. Please try again.';
+      const message = error instanceof Error ? error.message : t('auth.unableSignIn');
       throw new Error(message);
     }
   }
@@ -52,7 +53,7 @@ export class AuthService {
       });
       return result.message;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to activate account. Please try again.';
+      const message = error instanceof Error ? error.message : t('auth.unableActivate');
       throw new Error(message);
     }
   }
@@ -65,7 +66,7 @@ export class AuthService {
       });
       return result.message;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to activate admin account. Please try again.';
+      const message = error instanceof Error ? error.message : t('auth.unableActivate');
       throw new Error(message);
     }
   }

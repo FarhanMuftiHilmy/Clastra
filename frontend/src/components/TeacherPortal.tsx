@@ -6,11 +6,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { 
-  BookOpen, ChevronRight, CheckCircle2, User, Calendar, 
-  Users, Check, Info, ShieldAlert, Sparkles, Smile, ArrowLeft,
-  Moon, LogOut, ClipboardCheck
+import {
+  BookOpen, ChevronRight, CheckCircle2, Calendar,
+  Users, Check, Sparkles, ArrowLeft, LogOut, ClipboardCheck
 } from 'lucide-react';
+import { useLocale } from '../LocaleContext';
+import { t } from '../i18n';
 import { Teacher, Class, Student, AttendanceStatus, AttendanceRecord } from '../types';
 
 interface TeacherPortalProps {
@@ -30,28 +31,22 @@ export default function TeacherPortal({
   onSubmitAttendance,
   onLogout,
 }: TeacherPortalProps) {
+  useLocale();
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
-  const [attendanceDate, setAttendanceDate] = useState(() => {
-    return new Date().toISOString().split('T')[0]; // Default to today
-  });
+  const [attendanceDate, setAttendanceDate] = useState(() => new Date().toISOString().split('T')[0]);
   const navigate = useNavigate();
   const { classId: routeClassId } = useParams<{ classId?: string }>();
 
-  // State to hold active marking roster
-  // Key: studentId, Value: AttendanceStatus
   const [markingRoster, setMarkingRoster] = useState<Record<string, AttendanceStatus>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessScreen, setShowSuccessScreen] = useState(false);
 
-  // Filter classes assigned to this specific teacher
   const assignedClasses = classes.filter(c => c.teacherId === teacher.id);
 
-  // Get students of the currently active/selected class
-  const activeClassStudents = selectedClass 
-    ? students.filter(s => s.classId === selectedClass.id || s.classIds?.includes(selectedClass.id)) 
+  const activeClassStudents = selectedClass
+    ? students.filter(s => s.classId === selectedClass.id || s.classIds?.includes(selectedClass.id))
     : [];
 
-  // Handle Opening/Selecting a class to mark attendance
   const handleOpenClass = useCallback((cls: Class, shouldNavigate = true) => {
     if (shouldNavigate) {
       navigate(`/teacher/class/${cls.id}`);
@@ -60,7 +55,6 @@ export default function TeacherPortal({
     setSelectedClass(cls);
     setShowSuccessScreen(false);
 
-    // Look up if attendance is already recorded for this class + date
     const existingRecord = attendanceRecords.find(
       r => r.classId === cls.id && r.date === attendanceDate
     );
@@ -73,14 +67,13 @@ export default function TeacherPortal({
         const studentStatus = existingRecord.students.find(s => s.studentId === student.id);
         initialRoster[student.id] = studentStatus ? studentStatus.status : 'Present';
       } else {
-        initialRoster[student.id] = 'Present'; // Default to present
+        initialRoster[student.id] = 'Present';
       }
     });
 
     setMarkingRoster(initialRoster);
   }, [attendanceDate, attendanceRecords, navigate, students]);
 
-  // Fast action: mark all students in class as Present
   const handleMarkAllPresent = () => {
     const updated = { ...markingRoster };
     activeClassStudents.forEach(s => {
@@ -96,13 +89,11 @@ export default function TeacherPortal({
     }));
   };
 
-  // Submit attendance records
   const handleSubmit = () => {
     if (!selectedClass) return;
 
     setIsSubmitting(true);
 
-    // Compile into API structure
     const statusList = Object.entries(markingRoster).map(([studentId, status]) => ({
       studentId,
       status: status as AttendanceStatus,
@@ -129,12 +120,8 @@ export default function TeacherPortal({
 
   return (
     <div id="teacher-mobile-portal" className="h-full bg-slate-50 flex flex-col font-sans select-none relative">
-      
-      {/* Dynamic Screen Content Wrapper */}
       <AnimatePresence mode="wait">
         {!selectedClass ? (
-          
-          /* VIEW A: HOME DASHBOARD */
           <motion.div
             key="home"
             initial={{ opacity: 0 }}
@@ -142,57 +129,47 @@ export default function TeacherPortal({
             exit={{ opacity: 0 }}
             className="flex-1 flex flex-col p-5 space-y-6 overflow-y-auto"
           >
-            {/* Header Greeting */}
             <div className="flex justify-between items-start pt-2">
               <div className="space-y-1">
-                <span className="text-[10px] uppercase font-black text-indigo-600 tracking-wider">Springfield Academy</span>
-                <h3 className="text-lg font-black text-slate-800 leading-tight">Hi, {teacher.name.split(' ')[0]}! 👋</h3>
-                <p className="text-[11px] text-slate-500 font-medium">Instructor of {teacher.subject}</p>
-                {import.meta.env.MODE !== 'production' && (
-                  <div className="text-[10px] text-slate-400 mt-1">
-                    Debug: id={teacher.id} email={teacher.email} assignedClasses={assignedClasses.length}
-                  </div>
-                )}
+                <span className="text-[10px] uppercase font-black text-indigo-600 tracking-wider">{t('admin.brandLong')}</span>
+                <h3 className="text-lg font-black text-slate-800 leading-tight">{t('teacher.greeting', { name: teacher.name.split(' ')[0] })}</h3>
+                <p className="text-[11px] text-slate-500 font-medium">{t('teacher.instructorOf', { subject: teacher.subject })}</p>
               </div>
               <button
                 type="button"
                 onClick={onLogout}
                 className="p-2 bg-slate-200 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-full transition-colors cursor-pointer"
-                title="Log Out"
+                title={t('teacher.logOut')}
               >
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Quick Status banner */}
             <div className="bg-gradient-to-tr from-indigo-600 to-violet-500 text-white rounded-2xl p-4 shadow-md space-y-2 relative overflow-hidden">
               <div className="absolute right-[-10px] bottom-[-20px] opacity-15">
                 <ClipboardCheck className="w-32 h-32" />
               </div>
-              
+
               <div className="flex items-center gap-1.5 bg-white/20 py-0.5 px-2.5 rounded-full w-max text-[9px] font-bold uppercase tracking-wider">
                 <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" />
-                Mark Roll Call Daily
+                {t('teacher.markRollCallDaily')}
               </div>
-              
-              <h4 className="text-sm font-bold">Attendance Accountability</h4>
+
+              <h4 className="text-sm font-bold">{t('teacher.attendanceAccountability')}</h4>
               <p className="text-[10px] text-indigo-100 leading-relaxed max-w-[85%]">
-                Select an assigned class below to inspect student roster, mark absentees, and report metrics.
+                {t('teacher.attendanceLogged')}
               </p>
             </div>
 
-            {/* Class List Title */}
             <div className="space-y-3.5">
               <div className="flex justify-between items-center text-xs font-bold text-slate-700">
-                <span>Your Assigned Classes ({assignedClasses.length})</span>
-                <span className="text-[10px] text-slate-400 font-mono">Roll Registry</span>
+                <span>{t('teacher.assignedClasses')} ({assignedClasses.length})</span>
+                <span className="text-[10px] text-slate-400 font-mono">{t('teacher.rollRegistry')}</span>
               </div>
 
-              {/* Class Cards List */}
               <div className="space-y-3">
                 {assignedClasses.map(cls => {
                   const studentCount = students.filter(s => s.classId === cls.id || s.classIds?.includes(cls.id)).length;
-                  // check if already submitted today
                   const isSubmittedToday = attendanceRecords.some(
                     r => r.classId === cls.id && r.date === new Date().toISOString().split('T')[0]
                   );
@@ -215,9 +192,9 @@ export default function TeacherPortal({
                             {cls.name}
                           </h4>
                           <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
-                            <span>Room {cls.room.replace('Room ', '')}</span>
+                            <span>{t('teacher.roomLabel', { room: cls.room.replace('Room ', '') })}</span>
                             <span>•</span>
-                            <span>{studentCount} Students</span>
+                            <span>{t('teacher.studentsCount', { count: studentCount })}</span>
                           </div>
                         </div>
                       </div>
@@ -225,11 +202,11 @@ export default function TeacherPortal({
                       <div className="flex items-center gap-1.5 shrink-0">
                         {isSubmittedToday ? (
                           <span className="text-[9px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full">
-                            Done
+                            {t('teacher.done')}
                           </span>
                         ) : (
                           <span className="text-[9px] bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-full">
-                            Pending
+                            {t('teacher.pending')}
                           </span>
                         )}
                         <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
@@ -241,15 +218,13 @@ export default function TeacherPortal({
                 {assignedClasses.length === 0 && (
                   <div className="bg-slate-100 py-10 rounded-2xl border border-slate-200/60 text-center text-slate-400 text-xs">
                     <BookOpen className="w-8 h-8 mx-auto mb-2.5 stroke-1 text-slate-300" />
-                    No classes assigned to you. Admin can link teacher accounts.
+                    {t('teacher.noClassesAssigned')}
                   </div>
                 )}
               </div>
             </div>
           </motion.div>
         ) : showSuccessScreen ? (
-          
-          /* VIEW B: SUCCESS CONFIRMATION */
           <motion.div
             key="success"
             initial={{ scale: 0.95, opacity: 0 }}
@@ -262,25 +237,25 @@ export default function TeacherPortal({
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-lg font-black text-slate-900">Attendance Logged!</h3>
+              <h3 className="text-lg font-black text-slate-900">{t('teacher.attendanceLogged')}</h3>
               <p className="text-xs text-slate-500 leading-relaxed px-4">
-                The Springfield attendance ledger has updated successfully for <span className="font-semibold text-slate-700">{selectedClass.name}</span>.
+                {t('teacher.attendanceLedgerUpdated', { className: selectedClass?.name ?? '' })}
               </p>
             </div>
 
             <div className="bg-slate-50 rounded-xl p-4 w-full border border-slate-100 text-xs space-y-2.5 text-left">
               <div className="flex justify-between">
-                <span className="text-slate-400">Classroom:</span>
-                <span className="font-bold text-slate-700">{selectedClass.name}</span>
+                <span className="text-slate-400">{t('teacher.classroomLabel')}</span>
+                <span className="font-bold text-slate-700">{selectedClass?.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Date Logged:</span>
+                <span className="text-slate-400">{t('teacher.dateLogged')}</span>
                 <span className="font-mono font-bold text-slate-700">{attendanceDate}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Present Status Rate:</span>
+                <span className="text-slate-400">{t('teacher.presentStatusRate')}</span>
                 <span className="font-bold text-emerald-600">
-                  {Object.values(markingRoster).filter(v => v === 'Present').length} / {activeClassStudents.length} Students
+                  {Object.values(markingRoster).filter(v => v === 'Present').length} / {activeClassStudents.length} {t('teacher.studentsCount', { count: '' }).trim()}
                 </span>
               </div>
             </div>
@@ -291,12 +266,10 @@ export default function TeacherPortal({
               onClick={() => navigate('/teacher')}
               className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer select-none"
             >
-              Back to Class Registry
+              {t('teacher.backToRegistry')}
             </button>
           </motion.div>
         ) : (
-          
-          /* VIEW C: ATTENDANCE INTAKE SHEET */
           <motion.div
             key="intake"
             initial={{ opacity: 0, x: 20 }}
@@ -304,7 +277,6 @@ export default function TeacherPortal({
             exit={{ opacity: 0, x: -20 }}
             className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden"
           >
-            {/* Header / Back Action Bar */}
             <div className="bg-white px-4 pt-3 pb-3 border-b border-slate-100 flex items-center justify-between shrink-0">
               <button
                 type="button"
@@ -314,18 +286,17 @@ export default function TeacherPortal({
               >
                 <ArrowLeft className="w-4.5 h-4.5" />
               </button>
-              
+
               <div className="text-center">
                 <h4 className="text-xs font-black text-slate-800 truncate max-w-[180px]">
-                  {selectedClass.name}
+                  {selectedClass?.name}
                 </h4>
-                <p className="text-[10px] text-slate-400 font-semibold">{activeClassStudents.length} Student Roster</p>
+                <p className="text-[10px] text-slate-400 font-semibold">{t('teacher.studentRosterCount', { count: activeClassStudents.length })}</p>
               </div>
 
               <span className="w-7 h-7 text-transparent" />
             </div>
 
-            {/* Date Picker & Fast mark as Present */}
             <div className="bg-white px-4 py-2.5 border-b border-slate-200/60 flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
@@ -335,8 +306,7 @@ export default function TeacherPortal({
                   value={attendanceDate}
                   onChange={(e) => {
                     setAttendanceDate(e.target.value);
-                    // re-trigger load
-                    handleOpenClass(selectedClass);
+                    handleOpenClass(selectedClass as Class);
                   }}
                   className="bg-transparent text-[11px] font-bold text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer"
                 />
@@ -349,18 +319,16 @@ export default function TeacherPortal({
                 className="py-1 px-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-full text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
               >
                 <Users className="w-3 h-3" />
-                Mark All Present
+                {t('teacher.markAllPresent')}
               </button>
             </div>
 
-            {/* Students Intake Scrollable List */}
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {activeClassStudents.map((student) => {
                 const currentStatus = markingRoster[student.id] || 'Present';
 
                 return (
                   <div key={student.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 space-y-3">
-                    {/* Student Identity Row */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs shrink-0">
@@ -368,18 +336,17 @@ export default function TeacherPortal({
                         </div>
                         <div>
                           <h5 className="text-xs font-bold text-slate-800">{student.name}</h5>
-                          <p className="text-[9px] text-slate-400 font-semibold">Roll: {student.rollNumber}</p>
+                          <p className="text-[9px] text-slate-400 font-semibold">{t('auth.emailAddress')}: {student.email}</p>
                         </div>
                       </div>
                     </div>
 
-                    {/* Status selection pill box */}
                     <div className="grid grid-cols-4 gap-2">
                       {(['Present', 'Sick', 'Excused', 'Absent'] as AttendanceStatus[]).map((status) => {
                         const isSelected = currentStatus === status;
                         let activeBg = '';
                         let textTheme = '';
-                        
+
                         if (status === 'Present') {
                           activeBg = isSelected ? 'bg-emerald-500 border-emerald-500 text-white shadow-emerald-500/10' : 'hover:bg-emerald-50/50 border-slate-200 text-slate-500';
                           textTheme = 'text-emerald-500';
@@ -394,6 +361,15 @@ export default function TeacherPortal({
                           textTheme = 'text-red-500';
                         }
 
+                        const statusLabel =
+                          status === 'Present'
+                            ? t('admin.attendanceStatusPresent')
+                            : status === 'Sick'
+                            ? t('admin.attendanceStatusSick')
+                            : status === 'Excused'
+                            ? t('admin.attendanceStatusExcused')
+                            : t('admin.attendanceStatusAbsent');
+
                         return (
                           <button
                             key={status}
@@ -401,7 +377,7 @@ export default function TeacherPortal({
                             onClick={() => handleUpdateStatus(student.id, status)}
                             className={`py-1.5 rounded-xl border text-[10px] font-bold text-center transition-all cursor-pointer ${activeBg}`}
                           >
-                            {status}
+                            {statusLabel}
                           </button>
                         );
                       })}
@@ -412,20 +388,19 @@ export default function TeacherPortal({
 
               {activeClassStudents.length === 0 && (
                 <div className="text-center py-10 text-slate-400 text-xs">
-                  No students in classroom roster.
+                  {t('teacher.noStudentsInRoster')}
                 </div>
               )}
             </div>
 
-            {/* Bottom Submit Sticky Deck */}
             <div className="bg-white p-4 border-t border-slate-200 shrink-0 space-y-3">
               <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                <span>Roster Completion</span>
+                <span>{t('teacher.rosterCompletion')}</span>
                 <span className="text-slate-500">
-                  {Object.keys(markingRoster).length} / {activeClassStudents.length} marked
+                  {t('teacher.markedCount', { marked: Object.keys(markingRoster).length, total: activeClassStudents.length })}
                 </span>
               </div>
-              
+
               <button
                 type="button"
                 id="submit-attendance-btn"
@@ -436,15 +411,13 @@ export default function TeacherPortal({
                 {isSubmitting ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  'Submit Daily Attendance'
+                  t('teacher.submitDailyAttendance')
                 )}
               </button>
             </div>
-
           </motion.div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

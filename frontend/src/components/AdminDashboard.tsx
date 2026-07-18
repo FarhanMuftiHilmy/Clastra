@@ -12,6 +12,8 @@ import {
   X, AlertCircle, RefreshCw, Layers, Award, UserPlus, ArrowRight,
   GraduationCap, Shield
 } from 'lucide-react';
+import { supportedLocales, t } from '../i18n';
+import { useLocale } from '../LocaleContext';
 import { Student, Class, Teacher, AttendanceRecord, AttendanceStatus, Admin } from '../types';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, 
@@ -88,11 +90,16 @@ export default function AdminDashboard({
   const admins = adminsProp ?? [];
   const attendanceRecords = attendanceRecordsProp ?? [];
   const canEditAdmins = currentAdminRole === 'super';
-  const adminRoleLabel = currentAdminRole === 'super' ? 'Super Admin' : currentAdminRole === 'limited' ? 'Limited Admin' : 'Administrator';
+  const roleLabel = currentAdminRole === 'super'
+    ? t('admin.adminRoleSuper')
+    : currentAdminRole === 'limited'
+      ? t('admin.adminRoleLimited')
+      : t('admin.adminRoleAdministrator');
   const navigate = useNavigate();
   const location = useLocation();
 
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const { locale, setLocale: setLocaleState, localeJustChanged } = useLocale();
 
   const getTabFromPath = (pathname: string): TabType => {
     const parts = pathname.split('/').filter(Boolean);
@@ -124,6 +131,10 @@ export default function AdminDashboard({
 
     const path = tab === 'overview' ? '/admin' : `/admin/${tab}`;
     navigate(path);
+  };
+
+  const handleLocaleChange = (newLocale: typeof locale) => {
+    setLocaleState(newLocale);
   };
 
   useEffect(() => {
@@ -232,10 +243,10 @@ export default function AdminDashboard({
     if (total === 0) return [];
 
     return [
-      { name: 'Present', value: present, color: '#10b981' },
-      { name: 'Sick', value: sick, color: '#f59e0b' },
-      { name: 'Excused', value: excused, color: '#3b82f6' },
-      { name: 'Absent', value: absent, color: '#ef4444' },
+      { name: t('admin.attendanceStatusPresent'), value: present, color: '#10b981' },
+      { name: t('admin.attendanceStatusSick'), value: sick, color: '#f59e0b' },
+      { name: t('admin.attendanceStatusExcused'), value: excused, color: '#3b82f6' },
+      { name: t('admin.attendanceStatusAbsent'), value: absent, color: '#ef4444' },
     ];
   }, [attendanceRecords]);
 
@@ -323,7 +334,7 @@ export default function AdminDashboard({
   const filteredClasses = useMemo(() => {
     return classes.filter(cls => {
       const teacher = teachers.find(t => t.id === cls.teacherId);
-      const teacherName = teacher ? teacher.name : 'Unassigned';
+      const teacherName = teacher ? teacher.name : t('admin.unassignedBadge');
       return (
         cls.name.toLowerCase().includes(classSearch.toLowerCase()) ||
         cls.room.toLowerCase().includes(classSearch.toLowerCase()) ||
@@ -348,8 +359,8 @@ export default function AdminDashboard({
     asArray(attendanceRecords).forEach(record => {
       const cls = classes.find(c => c.id === record.classId);
       const teacher = teachers.find(t => t.id === record.submittedBy);
-      const className = cls ? cls.name : 'Unknown Class';
-      const teacherName = teacher ? teacher.name : 'Unknown Teacher';
+      const className = cls ? cls.name : t('admin.classUnassignedTitle');
+      const teacherName = teacher ? teacher.name : t('admin.unknownTeacherFallback');
       const studentsForRecord = asArray(record?.students);
 
       studentsForRecord.forEach(s => {
@@ -396,17 +407,17 @@ export default function AdminDashboard({
     setStudentFormError(null);
 
     // Validations
-    if (!studentForm.name.trim()) return setStudentFormError('Full Name is required');
-    if (!studentForm.rollNumber.trim()) return setStudentFormError('Roll Number/Student ID is required');
-    if (!studentForm.email.trim() || !studentForm.email.includes('@')) return setStudentFormError('Enter a valid email address');
-    if (!editingStudent && selectedClassIds.length === 0) return setStudentFormError('Please select at least one class');
+    if (!studentForm.name.trim()) return setStudentFormError(t('admin.errorFullNameRequired'));
+    if (!studentForm.rollNumber.trim()) return setStudentFormError(t('admin.errorRollNumberRequired'));
+    if (!studentForm.email.trim() || !studentForm.email.includes('@')) return setStudentFormError(t('admin.errorEmailInvalid'));
+    if (!editingStudent && selectedClassIds.length === 0) return setStudentFormError(t('admin.errorClassRequired'));
 
     // Roll number uniqueness validation (excluding current student being edited)
     const rollDup = students.some(s => 
       s.rollNumber.toLowerCase() === studentForm.rollNumber.toLowerCase() && 
       (!editingStudent || s.id !== editingStudent.id)
     );
-    if (rollDup) return setStudentFormError('This Roll Number is already registered');
+    if (rollDup) return setStudentFormError(t('admin.errorRollNumberDuplicate'));
 
     try {
       if (editingStudent) {
@@ -436,7 +447,7 @@ export default function AdminDashboard({
       setSelectedClassIds([]);
       setPrevClassIds([]);
     } catch (error: any) {
-      setStudentFormError(error?.message || 'Failed to save student assignment.');
+      setStudentFormError(error?.message || t('admin.errorStudentSaveFailed'));
     }
   };
 
@@ -467,12 +478,12 @@ export default function AdminDashboard({
     e.preventDefault();
     setTeacherFormError(null);
 
-    if (!teacherForm.name.trim()) return setTeacherFormError('Teacher name is required');
-    if (!teacherForm.email.trim() || !teacherForm.email.includes('@')) return setTeacherFormError('Enter a valid email address');
-    if (!teacherForm.subject.trim()) return setTeacherFormError('Subject is required');
+    if (!teacherForm.name.trim()) return setTeacherFormError(t('admin.errorTeacherNameRequired'));
+    if (!teacherForm.email.trim() || !teacherForm.email.includes('@')) return setTeacherFormError(t('admin.errorEmailInvalid'));
+    if (!teacherForm.subject.trim()) return setTeacherFormError(t('admin.errorTeacherSubjectRequired'));
 
     const emailDup = teachers.some(t => t.email.toLowerCase() === teacherForm.email.toLowerCase() && (!editingTeacher || t.id !== editingTeacher.id));
-    if (emailDup) return setTeacherFormError('This email is already registered');
+    if (emailDup) return setTeacherFormError(t('admin.errorTeacherEmailDuplicate'));
 
     if (editingTeacher) {
       onUpdateTeacher({ ...editingTeacher, ...teacherForm });
@@ -497,9 +508,9 @@ export default function AdminDashboard({
     e.preventDefault();
     setClassFormError(null);
 
-    if (!classForm.name.trim()) return setClassFormError('Class Name is required');
-    if (!classForm.grade.trim()) return setClassFormError('Grade level is required');
-    if (!classForm.room.trim()) return setClassFormError('Room identifier is required');
+    if (!classForm.name.trim()) return setClassFormError(t('admin.errorClassNameRequired'));
+    if (!classForm.grade.trim()) return setClassFormError(t('admin.errorClassGradeRequired'));
+    if (!classForm.room.trim()) return setClassFormError(t('admin.errorClassRoomRequired'));
 
     if (editingClass) {
       onUpdateClass({
@@ -538,7 +549,7 @@ export default function AdminDashboard({
   // Export Attendance Reports to Excel (simulated standard CSV download)
   const handleExportAttendance = () => {
     if (filteredAttendanceLogs.length === 0) {
-      alert("No attendance records match current filters to export.");
+      alert(t('admin.attendanceNoMatchingLogs'));
       return;
     }
 
@@ -574,23 +585,41 @@ export default function AdminDashboard({
       
       {/* Top Navbar Header */}
       <header id="admin-header" className="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-600 rounded-lg text-white shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-600 rounded-lg text-white shadow-sm">
             <GraduationCap className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-extrabold text-slate-900 leading-none tracking-tight">ScholaSync</span>
-              <span className="text-[9px] text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-md font-extrabold px-1.5 py-0.5 uppercase tracking-wide">ADMIN</span>
+              <span className="text-sm font-extrabold text-slate-900 leading-none tracking-tight">{t('admin.brand')}</span>
+              <span className="text-[9px] text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-md font-extrabold px-1.5 py-0.5 uppercase tracking-wide">{t('admin.adminBadge')}</span>
             </div>
-            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">Springfield Academy Management Portal</p>
+            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{t('admin.portalDescription')}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
           <div className="hidden md:flex flex-col text-right">
             <span className="text-sm font-bold text-slate-800 leading-none">{adminName}</span>
-            <span className="text-[10px] text-slate-400 font-semibold mt-1">Super Administrator</span>
+            <span className="text-[10px] text-slate-400 font-semibold mt-1">{roleLabel}</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700 text-xs">
+            <span className="font-semibold text-slate-500">{t('admin.languageLabel')}:</span>
+            <select
+              id="locale-select"
+              value={locale}
+              onChange={(e) => handleLocaleChange(e.target.value as typeof locale)}
+              className="bg-transparent outline-none text-slate-800 text-xs font-semibold"
+            >
+              {supportedLocales.map(localeOption => (
+                <option key={localeOption} value={localeOption}>
+                  {localeOption === 'en' ? t('admin.languageEnglish') : t('admin.languageIndonesian')}
+                </option>
+              ))}
+            </select>
+            {localeJustChanged && (
+              <span className="ml-3 text-xs text-emerald-600 font-semibold">{t('admin.languageChanged')}</span>
+            )}
           </div>
           <button
             type="button"
@@ -599,7 +628,7 @@ export default function AdminDashboard({
             className="flex items-center gap-2 py-1.5 px-3 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 rounded-lg text-xs font-semibold border border-slate-200 transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5 text-slate-400" />
-            Sign Out
+            {t('admin.signOut')}
           </button>
         </div>
       </header>
@@ -609,7 +638,7 @@ export default function AdminDashboard({
         {/* Sidebar Navigation */}
         <aside id="admin-sidebar" className="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col justify-between py-6 shrink-0">
           <div className="space-y-6">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-6">Navigation</div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-6">{t('admin.navigation')}</div>
             <nav className="space-y-1">
               <button
                 type="button"
@@ -622,7 +651,7 @@ export default function AdminDashboard({
                 }`}
               >
                 <Layers className="w-4 h-4" />
-                System Overview
+                {t('admin.tabOverview')}
               </button>
 
               <button
@@ -636,7 +665,7 @@ export default function AdminDashboard({
                 }`}
               >
                 <Users className="w-4 h-4" />
-                Manage Students
+                {t('admin.tabStudents')}
               </button>
 
               <button
@@ -650,7 +679,7 @@ export default function AdminDashboard({
                 }`}
               >
                 <School className="w-4 h-4" />
-                Manage Classes
+                {t('admin.tabClasses')}
               </button>
 
               <button
@@ -664,7 +693,7 @@ export default function AdminDashboard({
                 }`}
               >
                 <UserPlus className="w-4 h-4" />
-                Manage Teachers
+                {t('admin.tabTeachers')}
               </button>
 
               <button
@@ -678,7 +707,7 @@ export default function AdminDashboard({
                 }`}
               >
                 <Shield className="w-4 h-4" />
-                Manage Admins
+                {t('admin.tabAdmins')}
               </button>
 
               <button
@@ -692,7 +721,7 @@ export default function AdminDashboard({
                 }`}
               >
                 <UserCheck className="w-4 h-4" />
-                Attendance Log
+                {t('admin.tabAttendance')}
               </button>
 
               <button
@@ -706,19 +735,19 @@ export default function AdminDashboard({
                 }`}
               >
                 <BarChart3 className="w-4 h-4" />
-                Attendance Reports
+                {t('admin.tabReports')}
               </button>
             </nav>
           </div>
 
           {/* Sidebar Footer School info */}
           <div className="px-4">
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60">
               <div className="flex items-center gap-2 mb-1.5">
                 <Award className="w-4 h-4 text-amber-500" />
-                <span className="text-xs font-bold text-slate-800">Springfield High</span>
+                <span className="text-xs font-bold text-slate-800">{t('admin.brandLong')}</span>
               </div>
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">Academic Year 2026/2027. All systems operational.</p>
+              <p className="text-[10px] text-slate-500 font-medium leading-relaxed">{t('admin.academicYearNote', { year: `${new Date().getFullYear()}/${new Date().getFullYear() + 1}` })}</p>
             </div>
           </div>
         </aside>
@@ -728,17 +757,29 @@ export default function AdminDashboard({
           
           {/* Mobile Navigation Header */}
           <div className="flex md:hidden items-center overflow-x-auto gap-2 pb-4 mb-4 border-b border-slate-200">
-            {(['overview', 'students', 'classes', 'teachers', 'admins', 'attendance', 'reports'] as TabType[]).map(tab => (
-              <button
-                key={tab}
-                onClick={() => handleTabChange(tab)}
-                className={`py-1.5 px-3 rounded-full text-xs font-semibold whitespace-nowrap capitalize ${
-                  activeTab === tab ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
+            {(['overview', 'students', 'classes', 'teachers', 'admins', 'attendance', 'reports'] as TabType[]).map(tab => {
+              const labelMap: Record<TabType, string> = {
+                overview: t('admin.tabOverview'),
+                students: t('admin.tabStudents'),
+                classes: t('admin.tabClasses'),
+                teachers: t('admin.tabTeachers'),
+                admins: t('admin.tabAdmins'),
+                attendance: t('admin.tabAttendance'),
+                reports: t('admin.tabReports'),
+              };
+
+              return (
+                <button
+                  key={tab}
+                  onClick={() => handleTabChange(tab)}
+                  className={`py-1.5 px-3 rounded-full text-xs font-semibold whitespace-nowrap ${
+                    activeTab === tab ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {labelMap[tab]}
+                </button>
+              );
+            })}
           </div>
 
           <AnimatePresence mode="wait">
@@ -770,8 +811,8 @@ export default function AdminDashboard({
                 <div id="students-tab-view" className="space-y-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex flex-col gap-1.5">
-                      <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Manage Students</h2>
-                      <p className="text-sm text-slate-500">Add, edit, view and manage school student enrollments</p>
+                      <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{t('admin.manageStudentsTitle')}</h2>
+                      <p className="text-sm text-slate-500">{t('admin.manageStudentsDescription')}</p>
                     </div>
                     <button
                       type="button"
@@ -786,7 +827,7 @@ export default function AdminDashboard({
                       className="inline-flex items-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer select-none"
                     >
                       <UserPlus className="w-4 h-4" />
-                      Enroll Student
+                      {t('admin.enrollStudent')}
                     </button>
                   </div>
 
@@ -799,7 +840,7 @@ export default function AdminDashboard({
                       <input
                         id="student-search-input"
                         type="text"
-                        placeholder="Search student by name, roll number, or email..."
+                        placeholder={t('admin.studentSearchPlaceholder')}
                         value={studentSearch}
                         onChange={(e) => { setStudentSearch(e.target.value); setStudentPage(1); }}
                         className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:border-indigo-500 text-slate-800 transition-colors"
@@ -816,7 +857,7 @@ export default function AdminDashboard({
                           onChange={(e) => { setStudentClassFilter(e.target.value); setStudentPage(1); }}
                           className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 appearance-none focus:outline-none focus:border-indigo-500"
                         >
-                          <option value="all">All Classes</option>
+                          <option value="all">{t('admin.allClasses')}</option>
                           {classes.map(c => (
                             <option key={c.id} value={c.id}>{c.name}</option>
                           ))}
@@ -828,7 +869,7 @@ export default function AdminDashboard({
                   {/* Bulk assign controls */}
                   <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center gap-4">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Bulk assign selected students</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('admin.bulkAssignLabel')}</p>
                       <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-3">
                         <div className="relative flex-1 sm:w-72">
                           <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -851,25 +892,25 @@ export default function AdminDashboard({
                             setBulkAssignError(null);
                             setBulkAssignSuccess(null);
                             if (selectedStudentIds.length === 0) {
-                              setBulkAssignError('Select at least one student first.');
+                              setBulkAssignError(t('admin.noStudentsSelected')); 
                               return;
                             }
                             if (!bulkAssignClassId) {
-                              setBulkAssignError('Choose a class before assigning.');
+                              setBulkAssignError(t('admin.chooseClassAssign'));
                               return;
                             }
-                            const className = classes.find(c => c.id === bulkAssignClassId)?.name || 'the selected class';
+                            const className = classes.find(c => c.id === bulkAssignClassId)?.name || t('admin.theSelectedClass');
                             try {
                               await Promise.all(selectedStudentIds.map(id => onAssignStudentToClass(id, bulkAssignClassId)));
                               setSelectedStudentIds([]);
-                              setBulkAssignSuccess(`Assigned ${selectedStudentIds.length} student(s) to ${className}.`);
+                              setBulkAssignSuccess(t('admin.assignedSuccess', { count: selectedStudentIds.length, className }));
                             } catch (error: any) {
-                              setBulkAssignError(error?.message || 'Bulk assignment failed.');
+                              setBulkAssignError(error?.message || t('admin.bulkAssignmentFailed'));
                             }
                           }}
                           className="inline-flex items-center justify-center gap-2 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-md transition-all cursor-pointer"
                         >
-                          Assign Selected
+                          {t('admin.assignSelected')}
                         </button>
                         <button
                           type="button"
@@ -877,28 +918,28 @@ export default function AdminDashboard({
                             setBulkAssignError(null);
                             setBulkAssignSuccess(null);
                             if (selectedStudentIds.length === 0) {
-                              setBulkAssignError('Select at least one student first.');
+                              setBulkAssignError(t('admin.noStudentsSelected'));
                               return;
                             }
                             if (!bulkAssignClassId) {
-                              setBulkAssignError('Choose a class before unassigning.');
+                              setBulkAssignError(t('admin.chooseClassUnassign'));
                               return;
                             }
-                            const className = classes.find(c => c.id === bulkAssignClassId)?.name || 'the selected class';
-                            if (!confirm(`Unassign ${selectedStudentIds.length} selected student(s) from ${className}?`)) {
+                            const className = classes.find(c => c.id === bulkAssignClassId)?.name || t('admin.theSelectedClass');
+                            if (!confirm(t('admin.removeConfirm', { count: selectedStudentIds.length, className }))) {
                               return;
                             }
                             try {
                               await Promise.all(selectedStudentIds.map(id => onRemoveStudentFromClass(id, bulkAssignClassId)));
                               setSelectedStudentIds([]);
-                              setBulkAssignSuccess(`Unassigned ${selectedStudentIds.length} student(s) from ${className}.`);
+                              setBulkAssignSuccess(t('admin.unassignedSuccess', { count: selectedStudentIds.length, className }));
                             } catch (error: any) {
-                              setBulkAssignError(error?.message || 'Bulk unassignment failed.');
+                              setBulkAssignError(error?.message || t('admin.bulkUnassignmentFailed'));
                             }
                           }}
                           className="inline-flex items-center justify-center gap-2 py-2.5 px-4 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
                         >
-                          Unassign Selected
+                          {t('admin.unassignSelected')}
                         </button>
                       </div>
                       {bulkAssignError && (
@@ -910,9 +951,9 @@ export default function AdminDashboard({
                     </div>
                     <div className="text-xs text-slate-500">
                       {selectedStudentIds.length > 0 ? (
-                        <span>{selectedStudentIds.length} student(s) selected</span>
+                        <span>{t('admin.selectedCount', { count: selectedStudentIds.length })}</span>
                       ) : (
-                        <span>No students selected</span>
+                        <span>{t('admin.noStudentsSelectedText')}</span>
                       )}
                     </div>
                   </div>
@@ -926,7 +967,7 @@ export default function AdminDashboard({
                             <th className="py-4 px-4">
                               <input
                                 type="checkbox"
-                                aria-label="Select all students"
+                                aria-label={t('admin.selectAllStudents')}
                                 checked={selectedStudentIds.length > 0 && paginatedStudents.every(student => selectedStudentIds.includes(student.id))}
                                 onChange={(e) => {
                                   if (e.target.checked) {
@@ -939,12 +980,12 @@ export default function AdminDashboard({
                                 className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                               />
                             </th>
-                            <th className="py-4 px-6">Name</th>
-                            <th className="py-4 px-6">Roll Number</th>
-                            <th className="py-4 px-6">Email</th>
-                            <th className="py-4 px-6">Class Assignment</th>
-                            <th className="py-4 px-6">Gender</th>
-                            <th className="py-4 px-6 text-right">Actions</th>
+                            <th className="py-4 px-6">{t('admin.name')}</th>
+                            <th className="py-4 px-6">{t('admin.rollNumber')}</th>
+                            <th className="py-4 px-6">{t('admin.email')}</th>
+                            <th className="py-4 px-6">{t('admin.classAssignment')}</th>
+                            <th className="py-4 px-6">{t('admin.gender')}</th>
+                            <th className="py-4 px-6 text-right">{t('admin.actions')}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
@@ -982,24 +1023,24 @@ export default function AdminDashboard({
                                     </div>
                                   ) : (
                                     <span className="py-1 px-2.5 bg-slate-100 text-slate-500 rounded-lg text-[11px] font-bold">
-                                      Unassigned
+                                      {t('admin.unassignedBadge')}
                                     </span>
                                   )}
                                 </td>
-                                <td className="py-3.5 px-6 text-slate-500">{student.gender}</td>
+                                <td className="py-3.5 px-6 text-slate-500">{t(`admin.gender${student.gender}` as any)}</td>
                                 <td className="py-3.5 px-6 text-right space-x-1.5 whitespace-nowrap">
                                   <button
                                     type="button"
                                     onClick={() => handleOpenEditStudent(student)}
                                     className="p-1.5 hover:bg-slate-100 text-slate-600 hover:text-indigo-600 rounded-lg transition-colors cursor-pointer inline-flex"
-                                    title="Edit Student"
+                                    title={t('admin.editStudent')}
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      if (confirm(`Are you sure you want to remove student ${student.name}?`)) {
+                                      if (confirm(t('admin.removeStudentConfirm', { studentName: student.name }))) {
                                         onDeleteStudent(student.id);
                                         // adjust page if empty
                                         if (paginatedStudents.length === 1 && studentPage > 1) {
@@ -1008,7 +1049,7 @@ export default function AdminDashboard({
                                       }
                                     }}
                                     className="p-1.5 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-lg transition-colors cursor-pointer inline-flex"
-                                    title="Delete Student"
+                                    title={t('admin.deleteStudent')}
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -1020,7 +1061,7 @@ export default function AdminDashboard({
                             <tr>
                               <td colSpan={6} className="py-10 text-center text-slate-400 text-xs">
                                 <Users className="w-8 h-8 mx-auto mb-2.5 stroke-1 text-slate-300" />
-                                No students match your search criteria.
+                                {t('admin.noStudentsMatch')}
                               </td>
                             </tr>
                           )}
@@ -1032,11 +1073,12 @@ export default function AdminDashboard({
                     {filteredStudents.length > 0 && (
                       <div className="bg-slate-50 border-t border-slate-100 px-6 py-4 flex items-center justify-between">
                         <span className="text-xs text-slate-500">
-                          Showing <span className="font-semibold text-slate-700">{Math.min(filteredStudents.length, (studentPage - 1) * studentsPerPage + 1)}</span> to{' '}
-                          <span className="font-semibold text-slate-700">{Math.min(filteredStudents.length, studentPage * studentsPerPage)}</span> of{' '}
-                          <span className="font-semibold text-slate-700">{filteredStudents.length}</span> students
-                        </span>
-                        
+                            {t('admin.showingStudents', {
+                              start: Math.min(filteredStudents.length, (studentPage - 1) * studentsPerPage + 1),
+                              end: Math.min(filteredStudents.length, studentPage * studentsPerPage),
+                              total: filteredStudents.length,
+                            })}
+                          </span>
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
@@ -1044,7 +1086,7 @@ export default function AdminDashboard({
                             onClick={() => setStudentPage(studentPage - 1)}
                             className="py-1.5 px-3 bg-white hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-300 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
                           >
-                            Prev
+                            {t('admin.prev')}
                           </button>
                           {Array.from({ length: totalStudentPages }, (_, i) => i + 1).map(p => (
                             <button
@@ -1066,7 +1108,7 @@ export default function AdminDashboard({
                             onClick={() => setStudentPage(studentPage + 1)}
                             className="py-1.5 px-3 bg-white hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-300 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
                           >
-                            Next
+                            {t('admin.next')}
                           </button>
                         </div>
                       </div>
@@ -1134,7 +1176,7 @@ export default function AdminDashboard({
                 <div id="admins-tab-view" className="space-y-6">
                       {currentAdminRole === 'limited' && (
                     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-700 text-sm">
-                      You are signed in as a limited admin. You can view administrator accounts here, but creating, updating, and deleting admin users is restricted.
+                      {t('admin.limitedAdminNote')}
                     </div>
                   )}
                   <AdminManagement
@@ -1151,8 +1193,8 @@ export default function AdminDashboard({
               {activeTab === 'reports' && (
                 <div id="reports-tab-view" className="space-y-6">
                   <div className="flex flex-col gap-1.5">
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Analytical Insights</h2>
-                    <p className="text-sm text-slate-500">Inspect attendance trends, gender distributions, and class metrics over time</p>
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{t('admin.reportsInsightsTitle')}</h2>
+                    <p className="text-sm text-slate-500">{t('admin.reportsInsightsDescription')}</p>
                   </div>
 
                   {/* Reports Visualizations Grid */}
@@ -1160,7 +1202,7 @@ export default function AdminDashboard({
                     
                     {/* Time Trend Attendance Line Chart */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                      <h4 className="text-sm font-bold text-slate-800">Attendance Progression over Last 5 Days</h4>
+                      <h4 className="text-sm font-bold text-slate-800">{t('admin.attendanceProgressTitle')}</h4>
                       <div className="h-64">
                         {attendanceOverTime.length > 0 ? (
                           <ResponsiveContainer width="100%" height="100%">
@@ -1174,7 +1216,7 @@ export default function AdminDashboard({
                           </ResponsiveContainer>
                         ) : (
                           <div className="h-full flex items-center justify-center text-slate-400 text-xs">
-                            No attendance data available to map.
+                            {t('admin.noAttendanceData')}
                           </div>
                         )}
                       </div>
@@ -1182,7 +1224,7 @@ export default function AdminDashboard({
 
                     {/* Class Wise Enrollment Breakdown Chart */}
                     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                      <h4 className="text-sm font-bold text-slate-800">Class Roster Capacity (Students Enrolled)</h4>
+                      <h4 className="text-sm font-bold text-slate-800">{t('admin.overviewClassRosterCapacity')}</h4>
                       <div className="h-64">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={classAttendanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -1190,7 +1232,7 @@ export default function AdminDashboard({
                             <XAxis dataKey="className" tick={{ fontSize: 9, fill: '#64748b' }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ borderRadius: '12px', borderColor: '#e2e8f0', fontSize: '12px' }} />
-                            <Bar dataKey="Student Count" fill="#818cf8" radius={[4, 4, 0, 0]} barSize={24} />
+                            <Bar dataKey="studentCount" name={t('admin.studentCount')} fill="#818cf8" radius={[4, 4, 0, 0]} barSize={24} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -1198,7 +1240,7 @@ export default function AdminDashboard({
 
                     {/* Gender Distribution Summary */}
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                      <h4 className="text-sm font-bold text-slate-800">Gender Distribution</h4>
+                      <h4 className="text-sm font-bold text-slate-800">{t('admin.genderDistribution')}</h4>
                       <div className="space-y-4">
                         {['Male', 'Female', 'Other'].map(gender => {
                           const count = students.filter(s => s.gender === gender).length;
@@ -1206,7 +1248,7 @@ export default function AdminDashboard({
                           return (
                             <div key={gender} className="space-y-1.5 text-xs">
                               <div className="flex justify-between font-medium">
-                                <span className="text-slate-600">{gender} Students</span>
+                                <span className="text-slate-600">{t(`admin.gender${gender}Students` as any)}</span>
                                 <span className="text-slate-800 font-bold">{count} ({pct}%)</span>
                               </div>
                               <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -1225,28 +1267,28 @@ export default function AdminDashboard({
 
                     {/* System Summary Quick Report Card */}
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between">
-                      <h4 className="text-sm font-bold text-slate-800">Audit Status Report</h4>
+                      <h4 className="text-sm font-bold text-slate-800">{t('admin.auditStatusReport')}</h4>
                       <div className="space-y-2.5 text-xs text-slate-600">
                         <div className="flex justify-between border-b border-slate-100 pb-2">
-                          <span>Submissions Ledger Records:</span>
-                          <span className="font-bold text-slate-800">{attendanceRecords.length} submissions</span>
+                          <span>{t('admin.auditSubmissionsLedger')}</span>
+                          <span className="font-bold text-slate-800">{t('admin.auditSubmissionsCount', { count: attendanceRecords.length })}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-100 pb-2">
-                          <span>Verified Cohort Count:</span>
-                          <span className="font-bold text-slate-800">{students.length} students</span>
+                          <span>{t('admin.auditVerifiedCohort')}</span>
+                          <span className="font-bold text-slate-800">{t('admin.auditVerifiedCohortCount', { count: students.length })}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-100 pb-2">
-                          <span>Active Instructors:</span>
-                          <span className="font-bold text-slate-800">{teachers.length} teachers</span>
+                          <span>{t('admin.auditActiveInstructors')}</span>
+                          <span className="font-bold text-slate-800">{t('admin.auditActiveInstructorsCount', { count: teachers.length })}</span>
                         </div>
                         <div className="flex justify-between pb-1">
-                          <span>School Capacity Ratio:</span>
+                          <span>{t('admin.auditSchoolCapacityRatio')}</span>
                           <span className="font-bold text-indigo-600">{Math.round((students.length / 120) * 100)}% Capacity</span>
                         </div>
                       </div>
                       <div className="pt-2">
                         <p className="text-[10px] text-slate-400 italic text-center leading-normal">
-                          Reports are refreshed dynamically. All calculated statistics adhere to active Springfield registries.
+                          {t('admin.auditReportsNote')}
                         </p>
                       </div>
                     </div>
@@ -1269,7 +1311,7 @@ export default function AdminDashboard({
           >
             <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
               <h3 className="font-bold text-sm tracking-tight">
-                {editingStudent ? 'Edit Student Details' : 'Register New Student'}
+                {editingStudent ? t('admin.studentModalEditTitle') : t('admin.studentModalNewTitle')}
               </h3>
               <button 
                 type="button" 
@@ -1289,12 +1331,12 @@ export default function AdminDashboard({
               )}
 
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Full Name</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admin.studentFormFullName')}</label>
                 <input
                   id="student-form-name"
                   type="text"
                   required
-                  placeholder="e.g. Liam Thompson"
+                  placeholder={t('admin.studentFormFullNamePlaceholder')}
                   value={studentForm.name}
                   onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-800 focus:outline-none focus:border-indigo-500"
@@ -1303,12 +1345,12 @@ export default function AdminDashboard({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Roll ID / Reg No</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admin.studentFormRollLabel')}</label>
                   <input
                     id="student-form-roll"
                     type="text"
                     required
-                    placeholder="e.g. 10A12"
+                    placeholder={t('admin.studentFormRollPlaceholder')}
                     value={studentForm.rollNumber}
                     onChange={(e) => setStudentForm({ ...studentForm, rollNumber: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-800 focus:outline-none focus:border-indigo-500"
@@ -1316,27 +1358,27 @@ export default function AdminDashboard({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Gender</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admin.studentFormGenderLabel')}</label>
                   <select
                     id="student-form-gender"
                     value={studentForm.gender}
                     onChange={(e) => setStudentForm({ ...studentForm, gender: e.target.value as 'Male' | 'Female' | 'Other' })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
                   >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
+                    <option value="Male">{t('admin.genderMale')}</option>
+                    <option value="Female">{t('admin.genderFemale')}</option>
+                    <option value="Other">{t('admin.genderOther')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admin.studentFormEmailLabel')}</label>
                 <input
                   id="student-form-email"
                   type="email"
                   required
-                  placeholder="e.g. liam.t@school.edu"
+                  placeholder={t('admin.studentFormEmailPlaceholder')}
                   value={studentForm.email}
                   onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-800 focus:outline-none focus:border-indigo-500"
@@ -1344,7 +1386,7 @@ export default function AdminDashboard({
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Class Cohort Assignment</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admin.studentFormClassAssignmentLabel')}</label>
                 <div className="grid grid-cols-2 gap-2 max-h-40 overflow-auto border border-slate-100 p-2 rounded-md">
                   {classes.map(c => (
                     <label key={c.id} className="flex items-center gap-2 text-xs">
@@ -1369,14 +1411,14 @@ export default function AdminDashboard({
                   onClick={() => setIsStudentModalOpen(false)}
                   className="py-2 px-4 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
                 >
-                  Cancel
+                  {t('admin.studentFormCancel')}
                 </button>
                 <button
                   type="submit"
                   id="student-form-submit-btn"
                   className="py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md transition-colors cursor-pointer"
                 >
-                  {editingStudent ? 'Save Student' : 'Enroll Student'}
+                  {editingStudent ? t('admin.studentFormSave') : t('admin.studentFormEnroll')}
                 </button>
               </div>
             </form>
@@ -1393,7 +1435,7 @@ export default function AdminDashboard({
             className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100"
           >
             <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
-              <h3 className="font-bold text-sm tracking-tight">{editingTeacher ? 'Edit Teacher Account' : 'Add New Teacher Account'}</h3>
+              <h3 className="font-bold text-sm tracking-tight">{editingTeacher ? t('admin.teacherModalEditTitle') : t('admin.teacherModalNewTitle')}</h3>
               <button 
                 type="button" 
                 onClick={() => setIsTeacherModalOpen(false)}
@@ -1412,12 +1454,12 @@ export default function AdminDashboard({
               )}
 
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Full Name</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admin.teacherFormFullName')}</label>
                 <input
                   id="teacher-form-name"
                   type="text"
                   required
-                  placeholder="e.g. Sarah Jenkins"
+                  placeholder={t('admin.teacherFormNamePlaceholder')}
                   value={teacherForm.name}
                   onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-800 focus:outline-none focus:border-indigo-500"
@@ -1425,12 +1467,12 @@ export default function AdminDashboard({
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admin.teacherFormEmail')}</label>
                 <input
                   id="teacher-form-email"
                   type="email"
                   required
-                  placeholder="e.g. sarah@school.edu"
+                  placeholder={t('admin.teacherFormEmailPlaceholder')}
                   value={teacherForm.email}
                   onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-800 focus:outline-none focus:border-indigo-500"
@@ -1438,12 +1480,12 @@ export default function AdminDashboard({
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Subject / Department</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admin.teacherFormSubject')}</label>
                 <input
                   id="teacher-form-subject"
                   type="text"
                   required
-                  placeholder="e.g. Mathematics"
+                  placeholder={t('admin.teacherFormSubjectPlaceholder')}
                   value={teacherForm.subject}
                   onChange={(e) => setTeacherForm({ ...teacherForm, subject: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-800 focus:outline-none focus:border-indigo-500"
@@ -1456,14 +1498,14 @@ export default function AdminDashboard({
                   onClick={() => setIsTeacherModalOpen(false)}
                   className="py-2 px-4 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
                 >
-                  Cancel
+                  {t('admin.studentFormCancel')}
                 </button>
                 <button
                   type="submit"
                   id="teacher-form-submit-btn"
                   className="py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md transition-colors cursor-pointer"
                 >
-                  {editingTeacher ? 'Save Teacher' : 'Create Teacher Account'}
+                  {editingTeacher ? t('admin.teacherFormSave') : t('admin.teacherFormCreate')}
                 </button>
               </div>
             </form>
@@ -1481,7 +1523,7 @@ export default function AdminDashboard({
           >
             <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
               <h3 className="font-bold text-sm tracking-tight">
-                {editingClass ? 'Edit Class Parameters' : 'Establish New Class'}
+                {editingClass ? t('admin.classModalEditTitle') : t('admin.classModalNewTitle')}
               </h3>
               <button 
                 type="button" 
@@ -1501,12 +1543,12 @@ export default function AdminDashboard({
               )}
 
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Class / Subject Name</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admin.classFormNameLabel')}</label>
                 <input
                   id="class-form-name"
                   type="text"
                   required
-                  placeholder="e.g. Grade 11 - Advanced Algebra"
+                  placeholder={t('admin.classFormNamePlaceholder')}
                   value={classForm.name}
                   onChange={(e) => setClassForm({ ...classForm, name: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-800 focus:outline-none focus:border-indigo-500"
@@ -1515,12 +1557,12 @@ export default function AdminDashboard({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Grade Level</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admin.classFormGradeLabel')}</label>
                   <input
                     id="class-form-grade"
                     type="text"
                     required
-                    placeholder="e.g. 11"
+                    placeholder={t('admin.classFormGradePlaceholder')}
                     value={classForm.grade}
                     onChange={(e) => setClassForm({ ...classForm, grade: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-800 focus:outline-none focus:border-indigo-500"
@@ -1528,12 +1570,12 @@ export default function AdminDashboard({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Room Allocation</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admin.classFormRoomLabel')}</label>
                   <input
                     id="class-form-room"
                     type="text"
                     required
-                    placeholder="e.g. Lab C / Room 204"
+                    placeholder={t('admin.classFormRoomPlaceholder')}
                     value={classForm.room}
                     onChange={(e) => setClassForm({ ...classForm, room: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder-slate-400 text-slate-800 focus:outline-none focus:border-indigo-500"
@@ -1542,14 +1584,14 @@ export default function AdminDashboard({
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assign Principal Teacher</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('admin.classFormTeacherLabel')}</label>
                 <select
                   id="class-form-teacher"
                   value={classForm.teacherId}
                   onChange={(e) => setClassForm({ ...classForm, teacherId: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-indigo-500"
                 >
-                  <option value="">-- No Instructor (Unassigned) --</option>
+                  <option value="">{t('admin.noInstructorUnassignedOption')}</option>
                   {teachers.map(t => (
                     <option key={t.id} value={t.id}>{t.name} ({t.subject})</option>
                   ))}
@@ -1562,14 +1604,14 @@ export default function AdminDashboard({
                   onClick={() => setIsClassModalOpen(false)}
                   className="py-2 px-4 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
                 >
-                  Cancel
+                  {t('admin.studentFormCancel')}
                 </button>
                 <button
                   type="submit"
                   id="class-form-submit-btn"
                   className="py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-md transition-colors cursor-pointer"
                 >
-                  {editingClass ? 'Save Class' : 'Establish Class'}
+                  {editingClass ? t('admin.classFormSave') : t('admin.classFormCreate')}
                 </button>
               </div>
             </form>

@@ -3,6 +3,7 @@ import { Users, School, UserCheck, BarChart3, AlertCircle } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { Class, Teacher, AttendanceRecord } from '../../types';
 import { asArray } from '../../utils/safe';
+import { t } from '../../i18n';
 
 interface OverviewPageProps {
   totalStudents: number;
@@ -30,14 +31,14 @@ export default function OverviewPage({
   return (
     <div id="overview-tab-view" className="space-y-6">
       <div className="flex flex-col gap-1.5">
-        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">System Overview</h2>
-        <p className="text-sm text-slate-500">Real-time indicators across Springfield High classes and demographics</p>
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{t('admin.systemOverviewTitle')}</h2>
+          <p className="text-sm text-slate-500">{t('admin.systemOverviewDescription')}</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div className="space-y-1.5">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Students</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('admin.totalStudentsLabel')}</p>
             <h3 className="text-2xl md:text-3xl font-extrabold text-slate-900">{totalStudents}</h3>
           </div>
           <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
@@ -47,7 +48,7 @@ export default function OverviewPage({
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div className="space-y-1.5">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Classes</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('admin.totalClassesLabel')}</p>
             <h3 className="text-2xl md:text-3xl font-extrabold text-slate-900">{totalClasses}</h3>
           </div>
           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
@@ -57,7 +58,7 @@ export default function OverviewPage({
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div className="space-y-1.5">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Teachers</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('admin.activeTeachersLabel')}</p>
             <h3 className="text-2xl md:text-3xl font-extrabold text-slate-900">{totalTeachers}</h3>
           </div>
           <div className="p-3 bg-violet-50 text-violet-600 rounded-xl">
@@ -67,7 +68,7 @@ export default function OverviewPage({
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div className="space-y-1.5">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Avg Attendance</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t('admin.avgAttendanceLabel')}</p>
             <h3 className="text-2xl md:text-3xl font-extrabold text-slate-900">{overallAttendanceRate}%</h3>
           </div>
           <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
@@ -79,8 +80,8 @@ export default function OverviewPage({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 space-y-4">
           <div className="flex justify-between items-center">
-            <h4 className="text-sm font-bold text-slate-800">Class Attendance Performance</h4>
-            <span className="text-[11px] text-indigo-600 bg-indigo-50 py-0.5 px-2 rounded-full font-semibold">Target: 95%</span>
+            <h4 className="text-sm font-bold text-slate-800">{t('admin.classAttendancePerformanceTitle')}</h4>
+            <span className="text-[11px] text-indigo-600 bg-indigo-50 py-0.5 px-2 rounded-full font-semibold">{t('admin.classAttendanceTargetLabel')}</span>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -95,7 +96,7 @@ export default function OverviewPage({
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
-          <h4 className="text-sm font-bold text-slate-800">Attendance State Breakdown</h4>
+          <h4 className="text-sm font-bold text-slate-800">{t('admin.attendanceStateBreakdownTitle')}</h4>
           {statusStats.length > 0 ? (
             <>
               <div className="h-44 flex items-center justify-center relative">
@@ -106,12 +107,12 @@ export default function OverviewPage({
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => [`${value} instances`, 'Total']} />
+                    <Tooltip formatter={(value) => [t('admin.tooltipInstancesLabel', { count: Number(value ?? 0) }), t('admin.tooltipTotalLabel')] as [string, string]} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute flex flex-col items-center">
                   <span className="text-2xl font-black text-slate-900">{overallAttendanceRate}%</span>
-                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Present Rate</span>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">{t('admin.presentRateLabel')}</span>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 pt-2">
@@ -127,42 +128,42 @@ export default function OverviewPage({
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-xs py-8">
               <AlertCircle className="w-8 h-8 mb-2 stroke-1 text-slate-300" />
-              No submissions recorded yet
+              {t('admin.noSubmissionsRecorded')}
             </div>
           )}
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-3.5 p-5">
-        <h4 className="text-sm font-bold text-slate-800">Latest Submissions</h4>
+        <h4 className="text-sm font-bold text-slate-800">{t('admin.latestSubmissionsTitle')}</h4>
         <div className="divide-y divide-slate-100">
           {asArray(attendanceRecords).slice(-3).reverse().map((rec, idx) => {
             const cls = classes.find(c => c.id === rec?.classId);
             const teacher = teachers.find(t => t.id === rec?.submittedBy);
             const studentsForRecord = asArray(rec?.students);
             const presentCount = studentsForRecord.filter(s => s?.status === 'Present').length;
-            const submittedAt = rec?.submittedAt ? new Date(rec.submittedAt).toLocaleDateString() : 'Unknown date';
+            const submittedAt = rec?.submittedAt ? new Date(rec?.submittedAt).toLocaleDateString() : t('admin.unknownDateFallback');
 
             return (
               <div key={idx} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
-                    {cls?.name?.substring(0, 2) || 'CL'}
+                    {cls?.name?.substring(0, 2) || t('admin.initialClassAbbreviation')}
                   </div>
                   <div>
-                    <h5 className="text-xs font-bold text-slate-800">{cls?.name || 'Classroom'}</h5>
-                    <p className="text-[10px] text-slate-400">By {teacher?.name || 'Assigned Teacher'} • {submittedAt}</p>
+                    <h5 className="text-xs font-bold text-slate-800">{cls?.name || t('admin.classroomFallback')}</h5>
+                    <p className="text-[10px] text-slate-400">{t('admin.byLabel')} {teacher?.name || t('admin.assignedTeacherPlaceholder')} • {submittedAt}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-bold text-slate-800">{presentCount} / {studentsForRecord.length} Present</span>
-                  <p className="text-[10px] text-emerald-500 font-bold">Submitted Successfully</p>
+                  <span className="text-xs font-bold text-slate-800">{t('admin.presentSummaryLabel', { present: presentCount, total: studentsForRecord.length })}</span>
+                  <p className="text-[10px] text-emerald-500 font-bold">{t('admin.submittedSuccessfullyLabel')}</p>
                 </div>
               </div>
             );
           })}
           {attendanceRecords.length === 0 && (
-            <p className="text-xs text-slate-400 text-center py-4">No attendance reports submitted today.</p>
+            <p className="text-xs text-slate-400 text-center py-4">{t('admin.attendanceNoReportsToday')}</p>
           )}
         </div>
       </div>
