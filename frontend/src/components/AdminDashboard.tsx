@@ -90,6 +90,7 @@ export default function AdminDashboard({
   const admins = adminsProp ?? [];
   const attendanceRecords = attendanceRecordsProp ?? [];
   const canEditAdmins = currentAdminRole === 'super';
+  const formatClassLabel = (cls: Class) => `Grade ${cls.grade} - ${cls.name}`;
   const roleLabel = currentAdminRole === 'super'
     ? t('admin.adminRoleSuper')
     : currentAdminRole === 'limited'
@@ -151,13 +152,13 @@ export default function AdminDashboard({
   const [bulkAssignError, setBulkAssignError] = useState<string | null>(null);
   const [bulkAssignSuccess, setBulkAssignSuccess] = useState<string | null>(null);
 
-  const [classSearch, setClassSearch] = useState('');
-
   useEffect(() => {
-    if (!bulkAssignClassId && classes.length > 0) {
-      setBulkAssignClassId(classes[0].id);
-    }
-  }, [classes, bulkAssignClassId]);
+    if (!bulkAssignSuccess) return;
+    const timeoutId = window.setTimeout(() => setBulkAssignSuccess(null), 4000);
+    return () => window.clearTimeout(timeoutId);
+  }, [bulkAssignSuccess]);
+
+  const [classSearch, setClassSearch] = useState('');
 
   const [attendanceClassFilter, setAttendanceClassFilter] = useState('all');
   const [attendanceDateFilter, setAttendanceDateFilter] = useState('');
@@ -859,7 +860,7 @@ export default function AdminDashboard({
                         >
                           <option value="all">{t('admin.allClasses')}</option>
                           {classes.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
+                            <option key={c.id} value={c.id}>{formatClassLabel(c)}</option>
                           ))}
                         </select>
                       </div>
@@ -881,8 +882,9 @@ export default function AdminDashboard({
                             onChange={(e) => setBulkAssignClassId(e.target.value)}
                             className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 appearance-none focus:outline-none focus:border-indigo-500"
                           >
+                            <option value="" disabled>{t('admin.chooseClassToAssign')}</option>
                             {classes.map(c => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
+                              <option key={c.id} value={c.id}>{formatClassLabel(c)}</option>
                             ))}
                           </select>
                         </div>
@@ -1399,7 +1401,7 @@ export default function AdminDashboard({
                         }}
                         className="w-3.5 h-3.5"
                       />
-                      <span>{c.name} ({c.room})</span>
+                      <span>{formatClassLabel(c)} ({c.room})</span>
                     </label>
                   ))}
                 </div>

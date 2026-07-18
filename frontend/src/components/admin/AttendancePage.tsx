@@ -51,6 +51,8 @@ export default function AttendancePage({
     Absent: t('admin.attendanceStatusAbsent'),
   };
 
+  const formatClassLabel = (cls: Class) => `Grade ${cls.grade} - ${cls.name}`;
+
   return (
     <div id="attendance-tab-view" className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -113,7 +115,7 @@ export default function AttendancePage({
             >
               <option value="all">{t('admin.attendanceAllClasses')}</option>
               {classes.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>{formatClassLabel(c)}</option>
               ))}
             </select>
           </div>
